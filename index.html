@@ -339,16 +339,28 @@ function qRowClass(n){
 }
 function formatQCodeCell(n,q){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
-  const label=(n.qVisual&&n.qVisual.label)||'일반 Q-CODE';
+  const label=(n.qVisual&&n.qVisual.label)||'일반';
+  const dc=n.displayClassification||{};
+  const format=String(n.notamFormat||'').toUpperCase();
+
+  if(format==='FAA_DOMESTIC'){
+    const primary=dc.primary||n.category||'FAA Domestic';
+    const secondary=dc.secondary||'FAA 본문 기준 분류';
+    return `<span class="qv ${esc(c)}">${esc(primary)}</span><br><span class="muted">${esc(secondary)} · ${esc(label)}</span>`;
+  }
+
   const subject=(n.qDecoded&&n.qDecoded.subject)||'';
   const status=(n.qDecoded&&n.qDecoded.status)||'';
   const decoded=[subject,status].filter(Boolean).join(' & ');
-  const value=decoded||q||n.qCode||'-';
-  return `<span class="qv ${esc(c)}">${esc(value)}</span><br><span class="muted">${esc(label)}</span>`;
+  const raw=n.qCode||dc.secondary||'';
+  const value=decoded||dc.primary||raw||'International Q-CODE';
+  const sub=[raw,label].filter(Boolean).join(' · ');
+
+  return `<span class="qv ${esc(c)}">${esc(value)}</span><br><span class="muted">${esc(sub)}</span>`;
 }
 function notams(a,li){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
-  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${a.map((n,i)=>{
+  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>원문</th></tr></thead><tbody>${a.map((n,i)=>{
     const id=`d-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,330))}</td></tr><tr id="${id}" class="detail"><td colspan="7"><b>판정 근거</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(n.text)}</pre></td></tr>`
   }).join('')}</tbody></table>`
@@ -360,7 +372,7 @@ function excludedNotams(a,li){
     const id=`x-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag LOW">시간외</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,300))}</td></tr><tr id="${id}" class="detail"><td colspan="7"><b>제외 사유</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(n.text)}</pre></td></tr>`
   }).join('');
-  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>원문</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
 }
 function formatNotamValidity(n){
   const t=n.impactTime||{};
