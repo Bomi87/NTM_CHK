@@ -14,7 +14,7 @@
 .tabs{display:flex;gap:8px;margin-bottom:16px}.tab{min-width:90px;border:1px solid var(--line);background:#fff;color:var(--muted);padding:10px 16px;border-radius:10px;font-weight:900;cursor:pointer}.tab.active{border-color:var(--p);color:var(--p);background:#edf4ff}
 .state{border:1px dashed #cbd4e1;border-radius:11px;padding:20px;text-align:center;color:var(--muted)}.list{display:grid;gap:11px}.card{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff}.card.selected{border-color:var(--p);box-shadow:0 0 0 2px rgba(18,102,241,.1)}
 .main{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:12px;padding:15px;cursor:pointer}.main input{width:18px;height:18px;accent-color:var(--p)}.sched{font-family:Consolas,monospace;font-weight:800;font-size:14px}.source{color:var(--muted);font-size:12px}
-.details{display:none;padding:0 15px 16px 55px;border-top:1px solid #edf0f4}.card.selected .details{display:block}.targets{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0}.target{display:flex;align-items:center;gap:7px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-weight:800;font-size:13px}.target input,.check input{width:17px;height:17px;accent-color:var(--p)}
+.details{display:none;padding:0 15px 16px 55px;border-top:1px solid #edf0f4}.card.selected .details{display:block}.mode-tabs{display:flex;gap:8px;padding:14px 0 0}.mode-btn{border:1px solid var(--line);background:#fff;color:var(--muted);padding:9px 14px;border-radius:9px;font-weight:900;cursor:pointer}.mode-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.mode-panel{display:none}.mode-panel.active{display:block}.targets{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0}.target{display:flex;align-items:center;gap:7px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-weight:800;font-size:13px}.target input,.check input{width:17px;height:17px;accent-color:var(--p)}
 .grid{display:grid;grid-template-columns:1fr 240px;gap:14px}label{display:grid;gap:7px;font-size:13px;font-weight:800;color:#465166}input,textarea{width:100%;border:1px solid #cfd7e3;border-radius:9px;padding:10px 11px;background:#fff;color:var(--text)}textarea{min-height:82px;resize:vertical;font-family:Consolas,monospace}input:focus,textarea:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 3px rgba(18,102,241,.1)}
 .filter{border:1px solid var(--line);border-radius:10px;padding:12px;background:#f8fafe;display:grid;gap:10px}.check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}.condition{display:grid;grid-template-columns:220px 220px 1fr;gap:16px;align-items:end}.unit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.notice{margin-top:15px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#f7f9fc;color:#536075;font-size:13px}
 .bar{position:sticky;bottom:12px;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:15px 18px;background:rgba(24,32,51,.95);color:#fff;border-radius:14px;box-shadow:0 14px 35px rgba(12,22,42,.25)}.hidden{display:none!important}.results{margin-top:30px}.leg{background:#fff;border:1px solid var(--line);border-radius:15px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}.leghead{display:flex;justify-content:space-between;gap:18px;padding:18px 20px;background:#f9fbfe;border-bottom:1px solid var(--line)}.leghead h3{margin:0 0 6px;font-family:Consolas,monospace;font-size:16px}
@@ -39,10 +39,10 @@
 <div class="heading"><div class="left"><span class="step">2</span><h2>분석 시간 조건</h2></div></div>
 <div class="condition">
 <label>출발 전 여유시간<div class="unit"><input id="before" type="number" min="0" max="24" step=".5" value="2"><span>시간</span></div></label>
-<label>도착 후 여유시간<div class="unit"><input id="after" type="number" min="0" max="24" step=".5" value="1"><span>시간</span></div></label>
+<label>도착 후 여유시간<div class="unit"><input id="after" type="number" min="0" max="24" step=".5" value="2"><span>시간</span></div></label>
 <label class="check"><input id="low" type="checkbox">LOW 등급도 표시</label>
 </div>
-<div class="notice"><strong>항로 NOTAM:</strong> FIR 코드와 계획항로를 입력하면 FL300 이상 또는 고도값이 없는 NOTAM 중 입력 AIRWAY와 일치하는 항목을 별도 매트릭스로 표시합니다.</div>
+<div class="notice"><strong>기본 분석시간:</strong> 선택한 공항 예정시각 또는 전체 항로 운항시간을 기준으로 앞·뒤 각각 2시간입니다. 공항 NOTAM과 항로 NOTAM은 별도로 분석됩니다.</div>
 </section>
 
 <div class="bar"><div><strong id="countText">0개 Leg 선택</strong><div id="preview" style="font-size:12px;color:#cbd4e2;margin-top:4px">조회 대상 없음</div></div><button id="analyzeBtn" class="btn primary" disabled>선택한 스케줄 NOTAM 분석</button></div>
@@ -62,17 +62,189 @@ async function init(){bind();loading(true,'초기화 중','설정과 스케줄�
 function bind(){document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchA(b.dataset.a));document.getElementById('allBtn').onclick=selectAll;document.getElementById('clearBtn').onclick=clearAll;document.getElementById('analyzeBtn').onclick=analyze;document.getElementById('testBtn').onclick=test}
 async function switchA(a){S.aircraft=a;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.a===a));if(!S.byAircraft[a])await load(a);else render()}
 async function load(a){showState(`${a} 스케줄을 불러오는 중입니다.`);try{S.byAircraft[a]=await get('schedules',{aircraft:a});render()}catch(e){showState(e.message);msg(e.message,true)}}
-function base(s){return {...s,queryDeparture:true,queryArrival:true,firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
-function render(){const arr=S.byAircraft[S.aircraft]||[],box=document.getElementById('list');box.innerHTML='';if(!arr.length){showState(`${S.aircraft} 시트에서 UTC 형식 스케줄을 찾지 못했습니다.`);return}document.getElementById('stateBox').classList.add('hidden');
-arr.forEach(s=>{const on=!!S.selected[s.id],d=S.selected[s.id]||base(s),c=document.createElement('div');c.className='card'+(on?' selected':'');c.innerHTML=`<label class="main"><input class="leg" type="checkbox" ${on?'checked':''}><span class="sched">${esc(s.displayText)}</span><span class="source">${esc(s.sourceCell)}</span></label><div class="details"><div class="targets"><label class="target"><input class="dep" type="checkbox" ${d.queryDeparture?'checked':''}>출발공항 ${esc(s.departureCode)}</label><label class="target"><input class="arr" type="checkbox" ${d.queryArrival?'checked':''}>도착공항 ${esc(s.arrivalCode)}</label></div><div class="grid"><div><label>항로/FIR 코드<input class="fir" value="${esc((d.firCodes||[]).join(', '))}" placeholder="예: RJJJ, ZNY"></label><label style="margin-top:12px">계획항로 / AIRWAY<textarea class="route" placeholder="예: BEMKI1E L607 Y740 Q7 L744 UM859 UN644 N644">${esc(d.route||'')}</textarea></label></div><div class="filter"><strong>항로 NOTAM 고도 필터</strong><label>최소 상한 고도<div class="unit"><input class="minfl" type="number" min="0" max="600" value="${Number(d.routeMinFlightLevel||300)}"><span>FL</span></div></label><label class="check"><input class="unknown" type="checkbox" ${d.includeAltitudeUnknown!==false?'checked':''}>고도값 없음도 포함</label><div class="help">기본: FL300 이상 + 고도값 없음</div></div></div></div>`;
-c.querySelector('.leg').onchange=e=>{if(e.target.checked)S.selected[s.id]=base(s);else delete S.selected[s.id];c.classList.toggle('selected',e.target.checked);ui()};
-['dep','arr','fir','route','minfl','unknown'].forEach(k=>{const el=c.querySelector('.'+k);el.addEventListener(el.type==='checkbox'?'change':'input',()=>sync(s.id,c))});box.appendChild(c)});ui()}
-function sync(id,c){if(!S.selected[id])return;const d=S.selected[id];d.queryDeparture=c.querySelector('.dep').checked;d.queryArrival=c.querySelector('.arr').checked;d.firCodes=c.querySelector('.fir').value.toUpperCase().split(/[\s,;]+/).filter(Boolean);d.route=c.querySelector('.route').value.toUpperCase();d.routeMinFlightLevel=Number(c.querySelector('.minfl').value||300);d.includeAltitudeUnknown=c.querySelector('.unknown').checked;ui()}
+function base(s){return {...s,analysisMode:'AIRPORT',queryDeparture:true,queryArrival:true,firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
+function render(){
+  const arr=S.byAircraft[S.aircraft]||[];
+  const box=document.getElementById('list');
+  box.innerHTML='';
+
+  if(!arr.length){
+    showState(`${S.aircraft} 시트에서 UTC 형식 스케줄을 찾지 못했습니다.`);
+    return;
+  }
+
+  document.getElementById('stateBox').classList.add('hidden');
+
+  arr.forEach(s=>{
+    const on=!!S.selected[s.id];
+    const d=S.selected[s.id]||base(s);
+    const c=document.createElement('div');
+    c.className='card'+(on?' selected':'');
+
+    c.innerHTML=`
+      <label class="main">
+        <input class="leg" type="checkbox" ${on?'checked':''}>
+        <span class="sched">${esc(s.displayText)}</span>
+        <span class="source">${esc(s.sourceCell)}</span>
+      </label>
+
+      <div class="details">
+        <div class="mode-tabs">
+          <button type="button" class="mode-btn airport-mode ${d.analysisMode==='AIRPORT'?'active':''}">공항 NOTAM</button>
+          <button type="button" class="mode-btn route-mode ${d.analysisMode==='ROUTE'?'active':''}">항로 NOTAM</button>
+        </div>
+
+        <div class="mode-panel airport-panel ${d.analysisMode==='AIRPORT'?'active':''}">
+          <div class="targets">
+            <label class="target">
+              <input class="dep" type="checkbox" ${d.queryDeparture?'checked':''}>
+              출발공항 ${esc(s.departureCode)}
+            </label>
+            <label class="target">
+              <input class="arr" type="checkbox" ${d.queryArrival?'checked':''}>
+              도착공항 ${esc(s.arrivalCode)}
+            </label>
+          </div>
+          <div class="help">선택한 각 공항의 예정시각을 기준으로 앞·뒤 시간 버퍼를 적용합니다. 고도 필터는 적용하지 않습니다.</div>
+        </div>
+
+        <div class="mode-panel route-panel ${d.analysisMode==='ROUTE'?'active':''}">
+          <div class="grid" style="padding-top:14px">
+            <div>
+              <label>항로/FIR 코드
+                <input class="fir" value="${esc((d.firCodes||[]).join(', '))}" placeholder="예: RJJJ, ZNY">
+              </label>
+              <label style="margin-top:12px">계획항로 / AIRWAY
+                <textarea class="route" placeholder="예: BEMKI1E L607 Y740 Q7 L744 UM859 UN644 N644">${esc(d.route||'')}</textarea>
+              </label>
+            </div>
+            <div class="filter">
+              <strong>항로 NOTAM 고도 필터</strong>
+              <label>최소 상한 고도
+                <div class="unit">
+                  <input class="minfl" type="number" min="0" max="600" value="${Number(d.routeMinFlightLevel||300)}">
+                  <span>FL</span>
+                </div>
+              </label>
+              <label class="check">
+                <input class="unknown" type="checkbox" ${d.includeAltitudeUnknown!==false?'checked':''}>
+                고도값 없음도 포함
+              </label>
+              <div class="help">기본: FL300 이상 + 고도값 없음</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    c.querySelector('.leg').onchange=e=>{
+      if(e.target.checked) S.selected[s.id]=base(s);
+      else delete S.selected[s.id];
+      c.classList.toggle('selected',e.target.checked);
+      render();
+    };
+
+    c.querySelector('.airport-mode').onclick=()=>{
+      if(!S.selected[s.id]) return;
+      S.selected[s.id].analysisMode='AIRPORT';
+      render();
+    };
+
+    c.querySelector('.route-mode').onclick=()=>{
+      if(!S.selected[s.id]) return;
+      S.selected[s.id].analysisMode='ROUTE';
+      render();
+    };
+
+    ['dep','arr','fir','route','minfl','unknown'].forEach(k=>{
+      const el=c.querySelector('.'+k);
+      el.addEventListener(
+        el.type==='checkbox'?'change':'input',
+        ()=>sync(s.id,c)
+      );
+    });
+
+    box.appendChild(c);
+  });
+
+  ui();
+}
+function sync(id,c){
+  if(!S.selected[id]) return;
+  const d=S.selected[id];
+
+  d.queryDeparture=c.querySelector('.dep').checked;
+  d.queryArrival=c.querySelector('.arr').checked;
+  d.firCodes=c.querySelector('.fir').value
+    .toUpperCase().split(/[\s,;]+/).filter(Boolean);
+  d.route=c.querySelector('.route').value.toUpperCase();
+  d.routeMinFlightLevel=Number(
+    c.querySelector('.minfl').value||300
+  );
+  d.includeAltitudeUnknown=c.querySelector('.unknown').checked;
+  ui();
+}
 function selectAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>{if(!S.selected[s.id])S.selected[s.id]=base(s)});render()}function clearAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>delete S.selected[s.id]);render()}
-function ui(){const a=Object.values(S.selected);document.getElementById('countText').textContent=`${a.length}개 Leg 선택`;const q=a.map(x=>{const z=[];if(x.queryDeparture)z.push(x.departureCode);if(x.queryArrival)z.push(x.arrivalCode);z.push(...(x.firCodes||[]));return z.join(', ')}).filter(Boolean);document.getElementById('preview').textContent=q.length?'조회 예정: '+q.join(' / '):'조회 대상 없음';document.getElementById('analyzeBtn').disabled=!a.length}
-async function analyze(){const schedules=Object.values(S.selected);for(const s of schedules){if(!s.queryDeparture&&!s.queryArrival&&!(s.firCodes||[]).length){msg(`${s.displayText}: 조회 대상을 하나 이상 선택하세요.`,true);return}}loading(true,'FAA NOTAM 분석 중','공항·FIR 조회와 AIRWAY 매칭을 계산하고 있습니다.');try{const r=await post('analyze',{schedules,extraCodes:[],beforeHours:Number(document.getElementById('before').value||2),afterHours:Number(document.getElementById('after').value||1),includeLow:document.getElementById('low').checked});renderResults(r);document.getElementById('results').scrollIntoView({behavior:'smooth'})}catch(e){msg(e.message,true)}finally{loading(false)}}
+function ui(){
+  const a=Object.values(S.selected);
+  document.getElementById('countText').textContent=`${a.length}개 Leg 선택`;
+
+  const q=a.map(x=>{
+    if(x.analysisMode==='ROUTE'){
+      return `항로: ${(x.firCodes||[]).join(', ')||'FIR 미입력'}`;
+    }
+
+    const z=[];
+    if(x.queryDeparture) z.push(x.departureCode);
+    if(x.queryArrival) z.push(x.arrivalCode);
+    return `공항: ${z.join(', ')||'미선택'}`;
+  });
+
+  document.getElementById('preview').textContent=
+    q.length?'조회 예정: '+q.join(' / '):'조회 대상 없음';
+  document.getElementById('analyzeBtn').disabled=!a.length;
+}
+async function analyze(){
+  const schedules=Object.values(S.selected);
+
+  for(const s of schedules){
+    if(s.analysisMode==='AIRPORT' &&
+       !s.queryDeparture && !s.queryArrival){
+      msg(`${s.displayText}: 출발공항 또는 도착공항을 선택하세요.`,true);
+      return;
+    }
+
+    if(s.analysisMode==='ROUTE' &&
+       !(s.firCodes||[]).length){
+      msg(`${s.displayText}: 항로 NOTAM 분석용 FIR 코드를 입력하세요.`,true);
+      return;
+    }
+  }
+
+  loading(
+    true,
+    'FAA NOTAM 분석 중',
+    '선택한 공항 또는 항로 조건을 별도로 분석하고 있습니다.'
+  );
+
+  try{
+    const r=await post('analyze',{
+      schedules,
+      extraCodes:[],
+      beforeHours:Number(document.getElementById('before').value||2),
+      afterHours:Number(document.getElementById('after').value||2),
+      includeLow:document.getElementById('low').checked
+    });
+
+    renderResults(r);
+    document.getElementById('results').scrollIntoView({behavior:'smooth'});
+  }catch(e){
+    msg(e.message,true);
+  }finally{
+    loading(false);
+  }
+}
 async function test(){loading(true,'API 연결 테스트','Pre-Production 인증 토큰을 요청하고 있습니다.');try{const r=await get('testConnection');msg(r.message)}catch(e){msg(e.message,true)}finally{loading(false)}}
-function renderResults(r){document.getElementById('results').classList.remove('hidden');document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);const box=document.getElementById('legs');box.innerHTML='';r.legs.forEach((x,li)=>{const a=document.createElement('article');a.className='leg';a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${matrix(x.airwayMatrix||[])}<div class="wrap">${notams(x.notams,li)}</div>`;box.appendChild(a)});document.querySelectorAll('.row').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.id).classList.toggle('open'))}
+function renderResults(r){document.getElementById('results').classList.remove('hidden');document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);const box=document.getElementById('legs');box.innerHTML='';r.legs.forEach((x,li)=>{const a=document.createElement('article');a.className='leg';a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${matrix(x.airwayMatrix||[])}<div class="wrap">${notams(x.notams,li)}</div>`;box.appendChild(a)});document.querySelectorAll('.row').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.id).classList.toggle('open'))}
 function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 18px">계획항로에 AIRWAY 형식 토큰이 없습니다.</div>';const max=Math.max(1,...a.map(x=>x.notams.length));let rows='';for(let i=0;i<max;i++)rows+=`<tr>${a.map(x=>`<td>${x.notams[i]?esc(x.notams[i].number):''}</td>`).join('')}</tr>`;return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4><div class="wrap"><table><thead><tr>${a.map(x=>`<th class="count">${x.count}</th>`).join('')}</tr><tr>${a.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`}
 function notams(a,li){if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>점수</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${a.map((n,i)=>{const id=`d-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';return `<tr class="row" data-id="${id}"><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${n.score}</td><td>${esc(q)}</td><td>${esc(cut(n.text,330))}</td></tr><tr id="${id}" class="detail"><td colspan="6"><b>판정 근거</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul><pre>${esc(n.text)}</pre></td></tr>`}).join('')}</tbody></table>`}
 function mini(s){return `<div class="mini"><span class="sev critical">CRITICAL ${s.critical}</span><span class="sev high">HIGH ${s.high}</span><span class="sev review">REVIEW ${s.review}</span><span class="sev low">LOW ${s.low}</span></div>`}
