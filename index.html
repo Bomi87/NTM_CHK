@@ -14,15 +14,26 @@
 .tabs{display:flex;gap:8px;margin-bottom:16px}.tab{min-width:90px;border:1px solid var(--line);background:#fff;color:var(--muted);padding:10px 16px;border-radius:10px;font-weight:900;cursor:pointer}.tab.active{border-color:var(--p);color:var(--p);background:#edf4ff}
 .state{border:1px dashed #cbd4e1;border-radius:11px;padding:20px;text-align:center;color:var(--muted)}.list{display:grid;gap:11px}.card{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff}.card.selected{border-color:var(--p);box-shadow:0 0 0 2px rgba(18,102,241,.1)}
 .main{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:12px;padding:15px;cursor:pointer}.main input{width:18px;height:18px;accent-color:var(--p)}.sched{font-family:Consolas,monospace;font-weight:800;font-size:14px}.source{color:var(--muted);font-size:12px}
-.details{display:none;padding:0 15px 16px 55px;border-top:1px solid #edf0f4}.card.selected .details{display:block}.mode-tabs{display:flex;gap:8px;padding:14px 0 0}.mode-btn{border:1px solid var(--line);background:#fff;color:var(--muted);padding:9px 14px;border-radius:9px;font-weight:900;cursor:pointer}.mode-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.mode-panel{display:none}.mode-panel.active{display:block}.targets{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0}.target{display:flex;align-items:center;gap:7px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-weight:800;font-size:13px}.target input,.check input{width:17px;height:17px;accent-color:var(--p)}
-.grid{display:grid;grid-template-columns:1fr 240px;gap:14px}label{display:grid;gap:7px;font-size:13px;font-weight:800;color:#465166}input,textarea{width:100%;border:1px solid #cfd7e3;border-radius:9px;padding:10px 11px;background:#fff;color:var(--text)}textarea{min-height:82px;resize:vertical;font-family:Consolas,monospace}input:focus,textarea:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 3px rgba(18,102,241,.1)}
+.details{display:none;padding:0 15px 16px 55px;border-top:1px solid #edf0f4}.card.selected .details{display:block}.mode-tabs{display:flex;gap:8px;padding:14px 0 0}.mode-btn{border:1px solid var(--line);background:#fff;color:var(--muted);padding:9px 14px;border-radius:9px;font-weight:900;cursor:pointer}.mode-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.mode-panel{display:none}.mode-panel.active{display:block}.manual-airport-row{display:grid;grid-template-columns:1fr 190px;gap:12px;margin-top:12px}.targets{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0}.target{display:flex;align-items:center;gap:7px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-weight:800;font-size:13px}.target input,.check input{width:17px;height:17px;accent-color:var(--p)}
+.grid{display:grid;grid-template-columns:1fr 240px;gap:14px}label{display:grid;gap:7px;font-size:13px;font-weight:800;color:#465166}input,textarea,select{width:100%;border:1px solid #cfd7e3;border-radius:9px;padding:10px 11px;background:#fff;color:var(--text)}select{border:1px solid #cfd7e3;border-radius:9px;padding:10px 11px;background:#fff;color:var(--text)}textarea{min-height:82px;resize:vertical;font-family:Consolas,monospace}input:focus,textarea:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 3px rgba(18,102,241,.1)}
 .filter{border:1px solid var(--line);border-radius:10px;padding:12px;background:#f8fafe;display:grid;gap:10px}.check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}.condition{display:grid;grid-template-columns:220px 220px 1fr;gap:16px;align-items:end}.unit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.notice{margin-top:15px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#f7f9fc;color:#536075;font-size:13px}
 .bar{position:sticky;bottom:12px;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:15px 18px;background:rgba(24,32,51,.95);color:#fff;border-radius:14px;box-shadow:0 14px 35px rgba(12,22,42,.25)}.hidden{display:none!important}.results{margin-top:30px}.leg{background:#fff;border:1px solid var(--line);border-radius:15px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}.leghead{display:flex;justify-content:space-between;gap:18px;padding:18px 20px;background:#f9fbfe;border-bottom:1px solid var(--line)}.leghead h3{margin:0 0 6px;font-family:Consolas,monospace;font-size:16px}
 .mini{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.sev{border-radius:999px;padding:6px 9px;font-size:11px;font-weight:900}.sev.critical{background:#ffe1e5;color:var(--crit)}.sev.high{background:#ffeadf;color:var(--high)}.sev.review{background:#fff1c7;color:var(--review)}.sev.low{background:#edf0f4;color:var(--low)}
 .wrap{overflow-x:auto;padding:0 18px 18px}.matrix-title{margin:16px 18px 8px;font-size:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 12px;border-bottom:1px solid #edf0f4;text-align:left;vertical-align:top;font-size:12px}th{color:#657086;background:#fafbfd;font-size:11px}.airway{background:#ffc400;color:#111;font-weight:900}.count{color:#d00;font-weight:900;text-align:center}.row{cursor:pointer}.row:hover{background:#f8fbff}.detail{display:none;background:#f9fbfd}.detail.open{display:table-row}
 .tag{display:inline-block;min-width:70px;text-align:center;border-radius:7px;padding:5px 7px;font-size:11px;font-weight:900}.tag.CRITICAL{background:#ffe0e4;color:var(--crit)}.tag.HIGH{background:#ffe8dc;color:var(--high)}.tag.REVIEW{background:#fff0c3;color:var(--review)}.tag.LOW{background:#edf0f4;color:var(--low)}pre{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:12px;line-height:1.5}
 .overlay{position:fixed;inset:0;background:rgba(16,25,42,.45);display:grid;place-items:center;z-index:999}.loader{background:#fff;border-radius:14px;padding:25px;min-width:290px;display:grid;justify-items:center;gap:10px}.spin{width:34px;height:34px;border:4px solid #e1e8f2;border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.toast{position:fixed;right:22px;bottom:22px;max-width:480px;border-radius:11px;padding:13px 16px;background:#1d283b;color:#fff;z-index:1100;white-space:pre-wrap}
-@media(max-width:800px){.app{padding:16px 12px 45px}.top,.leghead{flex-direction:column}.grid,.condition{grid-template-columns:1fr}.bar{position:static;flex-direction:column;align-items:stretch}}
+@media(max-width:800px){.app{padding:16px 12px 45px}.top,.leghead{flex-direction:column}.grid,.condition,.manual-airport-row{grid-template-columns:1fr}.bar{position:static;flex-direction:column;align-items:stretch}}
+
+.qv{font-weight:900;display:inline-block}
+.qv.IMPORTANT{color:#d71920}
+.qv.NORMAL{color:#111827}
+.qv.MILITARY{color:#7b8491}
+.row.q-important td{color:#d71920}
+.row.q-normal td{color:#111827}
+.row.q-military td{color:#7b8491;background:#f2f3f5}
+.excluded-box{margin:14px 18px 18px;border:1px dashed #cfd7e3;border-radius:10px;padding:12px;background:#fafbfc}
+.excluded-toggle{border:1px solid #cfd7e3;background:#fff;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer}
+.excluded-content.hidden{display:none}
 </style>
 </head>
 <body>
@@ -100,7 +111,7 @@ async function switchA(a){
   }
 }
 async function load(a){showState(`${a} 스케줄을 불러오는 중입니다.`);try{S.byAircraft[a]=await get('schedules',{aircraft:a});render()}catch(e){showState(e.message);msg(e.message,true)}}
-function base(s){return {...s,analysisMode:'AIRPORT',queryDeparture:true,queryArrival:true,firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
+function base(s){return {...s,analysisMode:'AIRPORT',queryDeparture:true,queryArrival:true,manualAirportCodes:[],manualAirportReference:'ARRIVAL',firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
 function render(){
   const arr=S.byAircraft[S.aircraft]||[];
   const box=document.getElementById('list');
@@ -143,7 +154,25 @@ function render(){
               도착공항 ${esc(s.arrivalCode)}
             </label>
           </div>
-          <div class="help">선택한 각 공항의 예정시각을 기준으로 앞·뒤 시간 버퍼를 적용합니다. 고도 필터는 적용하지 않습니다.</div>
+
+          <div class="manual-airport-row">
+            <label>추가 공항 코드
+              <input class="manual-airports"
+                value="${esc((d.manualAirportCodes||[]).map(x=>typeof x==='object'?x.code:x).join(', '))}"
+                placeholder="예: RKSI, RKTN, RJAA">
+            </label>
+
+            <label>추가 공항 기준시각
+              <select class="manual-reference">
+                <option value="ARRIVAL" ${d.manualAirportReference!=='DEPARTURE'?'selected':''}>도착 예정시각 기준</option>
+                <option value="DEPARTURE" ${d.manualAirportReference==='DEPARTURE'?'selected':''}>출발 예정시각 기준</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="help" style="margin-top:10px">
+            교체공항·회항공항 등은 직접 입력할 수 있습니다. 각 공항은 선택한 기준시각의 앞·뒤 버퍼로 분석하며 고도 필터는 적용하지 않습니다.
+          </div>
         </div>
 
         <div class="mode-panel route-panel ${d.analysisMode==='ROUTE'?'active':''}">
@@ -193,10 +222,10 @@ function render(){
       render();
     };
 
-    ['dep','arr','fir','route','minfl','unknown'].forEach(k=>{
+    ['dep','arr','manual-airports','manual-reference','fir','route','minfl','unknown'].forEach(k=>{
       const el=c.querySelector('.'+k);
       el.addEventListener(
-        el.type==='checkbox'?'change':'input',
+        (el.type==='checkbox'||el.tagName==='SELECT')?'change':'input',
         ()=>sync(s.id,c)
       );
     });
@@ -212,6 +241,10 @@ function sync(id,c){
 
   d.queryDeparture=c.querySelector('.dep').checked;
   d.queryArrival=c.querySelector('.arr').checked;
+  d.manualAirportReference=c.querySelector('.manual-reference').value;
+  d.manualAirportCodes=c.querySelector('.manual-airports').value
+    .toUpperCase().split(/[\s,;]+/).filter(Boolean)
+    .map(code=>({code,referenceRole:d.manualAirportReference}));
   d.firCodes=c.querySelector('.fir').value
     .toUpperCase().split(/[\s,;]+/).filter(Boolean);
   d.route=c.querySelector('.route').value.toUpperCase();
@@ -234,6 +267,9 @@ function ui(){
     const z=[];
     if(x.queryDeparture) z.push(x.departureCode);
     if(x.queryArrival) z.push(x.arrivalCode);
+    (x.manualAirportCodes||[]).forEach(item=>{
+      z.push(typeof item==='object'?item.code:item);
+    });
     return `공항: ${z.join(', ')||'미선택'}`;
   });
 
@@ -246,8 +282,9 @@ async function analyze(){
 
   for(const s of schedules){
     if(s.analysisMode==='AIRPORT' &&
-       !s.queryDeparture && !s.queryArrival){
-      msg(`${s.displayText}: 출발공항 또는 도착공항을 선택하세요.`,true);
+       !s.queryDeparture && !s.queryArrival &&
+       !(s.manualAirportCodes||[]).length){
+      msg(`${s.displayText}: 출발공항, 도착공항 또는 추가 공항을 입력하세요.`,true);
       return;
     }
 
@@ -282,9 +319,73 @@ async function analyze(){
   }
 }
 async function test(){loading(true,'API 연결 테스트','Pre-Production 인증 토큰을 요청하고 있습니다.');try{const r=await get('testConnection');msg(r.message)}catch(e){msg(e.message,true)}finally{loading(false)}}
-function renderResults(r){document.getElementById('results').classList.remove('hidden');document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);const box=document.getElementById('legs');box.innerHTML='';r.legs.forEach((x,li)=>{const a=document.createElement('article');a.className='leg';a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}<div class="wrap">${notams(x.notams,li)}</div>`;box.appendChild(a)});document.querySelectorAll('.row').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.id).classList.toggle('open'))}
+function renderResults(r){document.getElementById('results').classList.remove('hidden');document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);const box=document.getElementById('legs');box.innerHTML='';r.legs.forEach((x,li)=>{const a=document.createElement('article');a.className='leg';a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}<div class="wrap">${notams(x.notams,li)}</div>${excludedNotams(x.excludedByTime||[],li)}`;box.appendChild(a)});document.querySelectorAll('.row').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.id).classList.toggle('open'));
+document.querySelectorAll('.excluded-toggle').forEach(btn=>btn.onclick=()=>{
+  const box=document.getElementById(btn.dataset.target);
+  const hidden=box.classList.toggle('hidden');
+  btn.textContent=hidden
+    ? `분석시간 밖 NOTAM ${btn.dataset.count}건 보기`
+    : `분석시간 밖 NOTAM ${btn.dataset.count}건 닫기`;
+})}
 function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 18px">계획항로에 AIRWAY 형식 토큰이 없습니다.</div>';const max=Math.max(1,...a.map(x=>x.notams.length));let rows='';for(let i=0;i<max;i++)rows+=`<tr>${a.map(x=>`<td>${x.notams[i]?esc(x.notams[i].number):''}</td>`).join('')}</tr>`;return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4><div class="wrap"><table><thead><tr>${a.map(x=>`<th class="count">${x.count}</th>`).join('')}</tr><tr>${a.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`}
-function notams(a,li){if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>점수</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${a.map((n,i)=>{const id=`d-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';return `<tr class="row" data-id="${id}"><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${n.score}</td><td>${esc(q)}</td><td>${esc(cut(n.text,330))}</td></tr><tr id="${id}" class="detail"><td colspan="6"><b>판정 근거</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul><pre>${esc(n.text)}</pre></td></tr>`}).join('')}</tbody></table>`}
+function qRowClass(n){
+  const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
+  if(c==='IMPORTANT') return 'q-important';
+  if(c==='MILITARY') return 'q-military';
+  return 'q-normal';
+}
+function formatQCodeCell(n,q){
+  const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
+  const label=(n.qVisual&&n.qVisual.label)||'일반 Q-CODE';
+  return `<span class="qv ${esc(c)}">${esc(q||'-')}</span><br><span class="muted">${esc(label)}</span>`;
+}
+function notams(a,li){
+  if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
+  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>실제 영향시간</th><th>점수</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${a.map((n,i)=>{
+    const id=`d-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
+    return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${n.score}</td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,330))}</td></tr><tr id="${id}" class="detail"><td colspan="8"><b>판정 근거</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(n.text)}</pre></td></tr>`
+  }).join('')}</tbody></table>`
+}
+function excludedNotams(a,li){
+  if(!a.length)return '';
+  const target=`excluded-${li}`;
+  const rows=a.map((n,i)=>{
+    const id=`x-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
+    return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag LOW">시간외</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,300))}</td></tr><tr id="${id}" class="detail"><td colspan="7"><b>제외 사유</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(n.text)}</pre></td></tr>`
+  }).join('');
+  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>영향</th><th>Q-CODE/분류</th><th>원문</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+}
+function formatNotamValidity(n){
+  const t=n.impactTime||{};
+  if(!t.notamStartUtc&&!t.notamEndUtc) return '<span class="muted">해석 불가</span>';
+
+  const start=t.notamStartUtc?fmt(t.notamStartUtc):'시작 미상';
+  const end=t.notamEndUtc?fmt(t.notamEndUtc):'종료 미상';
+
+  return `${esc(start)}<br>~ ${esc(end)}`;
+}
+
+function formatImpactTime(n){
+  const t=n.impactTime||{};
+
+  if(t.overlapStatus!=='OVERLAP'){
+    return '<span class="muted">시간 해석 불가</span>';
+  }
+
+  return `<b>${esc(t.durationText||'-')}</b><br><span class="muted">${esc(fmt(t.overlapStartUtc))}<br>~ ${esc(fmt(t.overlapEndUtc))}</span>`;
+}
+
+function impactDetail(n){
+  const t=n.impactTime||{};
+  return `<div class="notice" style="margin:10px 0">
+    <b>NOTAM 시간 영향</b><br>
+    NOTAM 유효시간: ${esc(t.notamStartUtc?fmt(t.notamStartUtc):'시작 미상')} ~ ${esc(t.notamEndUtc?fmt(t.notamEndUtc):'종료 미상')}<br>
+    분석시간: ${esc(t.analysisStartUtc?fmt(t.analysisStartUtc):'-')} ~ ${esc(t.analysisEndUtc?fmt(t.analysisEndUtc):'-')}<br>
+    실제 중첩시간: ${esc(t.overlapStartUtc?fmt(t.overlapStartUtc):'-')} ~ ${esc(t.overlapEndUtc?fmt(t.overlapEndUtc):'-')}
+    (${esc(t.durationText||'시간 해석 불가')})
+  </div>`;
+}
+
 function mini(s){return `<div class="mini"><span class="sev critical">CRITICAL ${s.critical}</span><span class="sev high">HIGH ${s.high}</span><span class="sev review">REVIEW ${s.review}</span><span class="sev low">LOW ${s.low}</span></div>`}
 async function get(action,p={}){const u=new URL(BACKEND_URL);u.searchParams.set('action',action);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v));return parse(await fetch(u,{cache:'no-store'}))}async function post(action,payload){return parse(await fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload})}))}async function parse(r){const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){throw new Error(`백엔드 응답이 JSON이 아닙니다. HTTP ${r.status}\n${t.slice(0,500)}`)}if(!r.ok||!j.ok)throw new Error(j.error||`HTTP ${r.status}`);return j.data}
 function showState(t){const e=document.getElementById('stateBox');e.textContent=t;e.classList.remove('hidden')}function loading(on,t='',m=''){document.getElementById('overlay').classList.toggle('hidden',!on);if(t)document.getElementById('loadTitle').textContent=t;if(m)document.getElementById('loadMsg').textContent=m}
