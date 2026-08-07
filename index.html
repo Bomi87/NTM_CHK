@@ -25,10 +25,8 @@
 @media(max-width:800px){.app{padding:16px 12px 45px}.top,.leghead{flex-direction:column}.grid,.condition,.manual-airport-row{grid-template-columns:1fr}.bar{position:static;flex-direction:column;align-items:stretch}}
 
 .qv{font-weight:900;display:inline-block}
-.qv.IMPORTANT{color:#d71920}
 .qv.NORMAL{color:#111827}
 .qv.MILITARY{color:#7b8491}
-.row.q-important td{color:#d71920}
 .row.q-normal td{color:#111827}
 .row.q-military td{color:#7b8491;background:#f2f3f5}
 .excluded-box{margin:14px 18px 18px;border:1px dashed #cfd7e3;border-radius:10px;padding:12px;background:#fafbfc}
@@ -401,28 +399,29 @@ function applyRouteAltitudeFilter(li,filter){
 function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 18px">계획항로에 AIRWAY 형식 토큰이 없습니다.</div>';const max=Math.max(1,...a.map(x=>x.notams.length));let rows='';for(let i=0;i<max;i++)rows+=`<tr>${a.map(x=>`<td>${x.notams[i]?esc(x.notams[i].number):''}</td>`).join('')}</tr>`;return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4><div class="wrap"><table><thead><tr>${a.map(x=>`<th class="count">${x.count}</th>`).join('')}</tr><tr>${a.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`}
 function qRowClass(n){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
-  if(c==='IMPORTANT') return 'q-important';
   if(c==='MILITARY') return 'q-military';
   return 'q-normal';
 }
 function formatQCodeCell(n,q){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
-  const label=(n.qVisual&&n.qVisual.label)||'일반';
   const dc=n.displayClassification||{};
   const format=String(n.notamFormat||'').toUpperCase();
+  const isDod=c==='MILITARY';
+  const dodLine=isDod?'<br><span class="muted">US DOD / 군 전용</span>':'';
 
   if(format==='FAA_DOMESTIC'){
     const primary=dc.primary||n.category||'FAA Domestic';
     const secondary=dc.secondary||'FAA 본문 기준 분류';
-    return `<span class="qv ${esc(c)}">${esc(primary)}</span><br><span class="muted">${esc(secondary)} · ${esc(label)}</span>`;
+    return `<span class="qv">${esc(primary)}</span><br><span class="muted">${esc(secondary)}</span>${dodLine}`;
   }
 
   const subject=(n.qDecoded&&n.qDecoded.subject)||'';
   const status=(n.qDecoded&&n.qDecoded.status)||'';
   const decoded=[subject,status].filter(Boolean).join(' & ');
   const value=decoded||dc.primary||'Q-CODE Signification';
-  return `<span class="qv ${esc(c)}">${esc(value)}</span><br><span class="muted">${esc(label)}</span>`;
+  return `<span class="qv">${esc(value)}</span>${dodLine}`;
 }
+
 function notams(a,li,analysisMode){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
   return `<table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map(n=>{
