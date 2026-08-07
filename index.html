@@ -28,6 +28,8 @@
 .qv.NORMAL{color:#111827}
 .qv.MILITARY{color:#7b8491}
 .row.q-normal td{color:#111827}
+.row.q-important td{color:#d00000}
+.row.q-important .muted{color:#b42318}
 .row.q-military td{color:#7b8491;background:#f2f3f5}
 .excluded-box{margin:14px 18px 18px;border:1px dashed #cfd7e3;border-radius:10px;padding:12px;background:#fafbfc}
 .excluded-toggle{border:1px solid #cfd7e3;background:#fff;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer}
@@ -400,6 +402,7 @@ function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 1
 function qRowClass(n){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
   if(c==='MILITARY') return 'q-military';
+  if(c==='IMPORTANT') return 'q-important';
   return 'q-normal';
 }
 function formatQCodeCell(n,q){
