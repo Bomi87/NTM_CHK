@@ -57,7 +57,6 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 <div class="condition">
 <label>출발 전 여유시간<div class="unit"><input id="before" type="number" min="0" max="24" step=".5" value="2"><span>시간</span></div></label>
 <label>도착 후 여유시간<div class="unit"><input id="after" type="number" min="0" max="24" step=".5" value="2"><span>시간</span></div></label>
-<label class="check"><input id="low" type="checkbox">LOW 등급도 표시</label>
 </div>
 <div class="notice"><strong>기본 분석시간:</strong> 선택한 공항 예정시각 또는 전체 항로 운항시간을 기준으로 앞·뒤 각각 2시간입니다. 공항 NOTAM과 항로 NOTAM은 별도로 분석됩니다.</div>
 </section>
@@ -328,7 +327,7 @@ async function analyze(){
       extraCodes:[],
       beforeHours:Number(document.getElementById('before').value||2),
       afterHours:Number(document.getElementById('after').value||2),
-      includeLow:document.getElementById('low').checked
+      includeLow:true
     });
 
     renderResults(r);
@@ -350,7 +349,7 @@ function renderResults(r){
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
-    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
+    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
     box.appendChild(a);
   });
 
@@ -426,14 +425,14 @@ function formatQCodeCell(n,q){
 }
 function notams(a,li,analysisMode){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
-  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map(n=>{
+  return `<table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
     const isRoute=analysisMode==='ROUTE';
     const altitude=n.routeAltitudeBucket||'BELOW_300_OR_UNKNOWN';
     const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
     const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
-    return `<tr class="${rowClass}"${rowAttrs}><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`;
+    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -443,9 +442,9 @@ function excludedNotams(a,li){
   const rows=a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}"><td><span class="tag LOW">시간외</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`
+    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`
   }).join('');
-  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
 }
 function formatNotamValidity(n){
   const t=n.impactTime||{};
@@ -478,7 +477,6 @@ function impactDetail(n){
   </div>`;
 }
 
-function mini(s){return `<div class="mini"><span class="sev critical">CRITICAL ${s.critical}</span><span class="sev high">HIGH ${s.high}</span><span class="sev review">REVIEW ${s.review}</span><span class="sev low">LOW ${s.low}</span></div>`}
 async function get(action,p={}){const u=new URL(BACKEND_URL);u.searchParams.set('action',action);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v));return parse(await fetch(u,{cache:'no-store'}))}async function post(action,payload){return parse(await fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload})}))}async function parse(r){const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){throw new Error(`백엔드 응답이 JSON이 아닙니다. HTTP ${r.status}\n${t.slice(0,500)}`)}if(!r.ok||!j.ok)throw new Error(j.error||`HTTP ${r.status}`);return j.data}
 function showState(t){const e=document.getElementById('stateBox');e.textContent=t;e.classList.remove('hidden')}function loading(on,t='',m=''){document.getElementById('overlay').classList.toggle('hidden',!on);if(t)document.getElementById('loadTitle').textContent=t;if(m)document.getElementById('loadMsg').textContent=m}
 let timer;function msg(t,err=false){const e=document.getElementById('toast');e.textContent=t;e.style.background=err?'#9f2030':'#1d283b';e.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>e.classList.add('hidden'),err?7000:3500)}
