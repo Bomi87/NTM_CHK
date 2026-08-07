@@ -19,7 +19,7 @@
 .filter{border:1px solid var(--line);border-radius:10px;padding:12px;background:#f8fafe;display:grid;gap:10px}.check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}.condition{display:grid;grid-template-columns:220px 220px 1fr;gap:16px;align-items:end}.unit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.notice{margin-top:15px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#f7f9fc;color:#536075;font-size:13px}
 .bar{position:sticky;bottom:12px;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:15px 18px;background:rgba(24,32,51,.95);color:#fff;border-radius:14px;box-shadow:0 14px 35px rgba(12,22,42,.25)}.hidden{display:none!important}.results{margin-top:30px}.leg{background:#fff;border:1px solid var(--line);border-radius:15px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}.leghead{display:flex;justify-content:space-between;gap:18px;padding:18px 20px;background:#f9fbfe;border-bottom:1px solid var(--line)}.leghead h3{margin:0 0 6px;font-family:Consolas,monospace;font-size:16px}
 .mini{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.sev{border-radius:999px;padding:6px 9px;font-size:11px;font-weight:900}.sev.critical{background:#ffe1e5;color:var(--crit)}.sev.high{background:#ffeadf;color:var(--high)}.sev.review{background:#fff1c7;color:var(--review)}.sev.low{background:#edf0f4;color:var(--low)}
-.wrap{overflow-x:auto;padding:0 18px 18px}.matrix-title{margin:16px 18px 8px;font-size:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 12px;border-bottom:1px solid #edf0f4;text-align:left;vertical-align:top;font-size:12px}th{color:#657086;background:#fafbfd;font-size:11px}.airway{background:#ffc400;color:#111;font-weight:900}.count{color:#d00;font-weight:900;text-align:center}.row{cursor:pointer}.row:hover{background:#f8fbff}.detail{display:none;background:#f9fbfd}.detail.open{display:table-row}
+.wrap{overflow-x:auto;padding:0 18px 18px}.matrix-title{margin:16px 18px 8px;font-size:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 12px;border-bottom:1px solid #edf0f4;text-align:left;vertical-align:top;font-size:12px}th{color:#657086;background:#fafbfd;font-size:11px}.airway{background:#ffc400;color:#111;font-weight:900}.count{color:#d00;font-weight:900;text-align:center}.row{cursor:default}.row:hover{background:#f8fbff}.raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;line-height:1.45;min-width:430px}
 .tag{display:inline-block;min-width:70px;text-align:center;border-radius:7px;padding:5px 7px;font-size:11px;font-weight:900}.tag.CRITICAL{background:#ffe0e4;color:var(--crit)}.tag.HIGH{background:#ffe8dc;color:var(--high)}.tag.REVIEW{background:#fff0c3;color:var(--review)}.tag.LOW{background:#edf0f4;color:var(--low)}pre{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:12px;line-height:1.5}
 .overlay{position:fixed;inset:0;background:rgba(16,25,42,.45);display:grid;place-items:center;z-index:999}.loader{background:#fff;border-radius:14px;padding:25px;min-width:290px;display:grid;justify-items:center;gap:10px}.spin{width:34px;height:34px;border:4px solid #e1e8f2;border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.toast{position:fixed;right:22px;bottom:22px;max-width:480px;border-radius:11px;padding:13px 16px;background:#1d283b;color:#fff;z-index:1100;white-space:pre-wrap}
 @media(max-width:800px){.app{padding:16px 12px 45px}.top,.leghead{flex-direction:column}.grid,.condition,.manual-airport-row{grid-template-columns:1fr}.bar{position:static;flex-direction:column;align-items:stretch}}
@@ -39,6 +39,7 @@ table th:nth-child(6),table td:nth-child(6){min-width:220px;white-space:normal;w
 table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;word-break:break-word}
 .raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-width:720px}
 .qv{line-height:1.35}
+.route-alt-filter{display:flex;gap:8px;flex-wrap:wrap;margin:14px 18px 4px}.route-alt-btn{border:1px solid #cfd7e3;background:#fff;color:#536075;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer}.route-alt-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.route-alt-count{font-variant-numeric:tabular-nums}.route-filter-state{margin:8px 18px 0;color:var(--muted);font-size:12px}.route-notam-row.hidden-by-altitude{display:none}
 </style>
 </head>
 <body>
@@ -217,18 +218,9 @@ function render(){
               </label>
             </div>
             <div class="filter">
-              <strong>항로 NOTAM 고도 필터</strong>
-              <label>최소 상한 고도
-                <div class="unit">
-                  <input class="minfl" type="number" min="0" max="600" value="${Number(d.routeMinFlightLevel||300)}">
-                  <span>FL</span>
-                </div>
-              </label>
-              <label class="check">
-                <input class="unknown" type="checkbox" ${d.includeAltitudeUnknown!==false?'checked':''}>
-                고도값 없음도 포함
-              </label>
-              <div class="help">기본: FL300 이상 + 고도값 없음</div>
+              <strong>항로 NOTAM 결과 구분</strong>
+              <div class="help">조회 후 스케줄 영향시간대 NOTAM을 <b>FL300 이상</b>과 <b>FL300 이상 제외</b> 두 그룹으로 나누어 볼 수 있습니다.</div>
+              <div class="help">고도값이 없는 NOTAM은 <b>FL300 이상 제외</b> 그룹에 포함됩니다.</div>
             </div>
           </div>
         </div>
@@ -253,7 +245,7 @@ function render(){
       render();
     };
 
-    ['dep','arr','manual-airports','manual-reference','fir','route','minfl','unknown'].forEach(k=>{
+    ['dep','arr','manual-airports','manual-reference','fir','route'].forEach(k=>{
       const el=c.querySelector('.'+k);
       el.addEventListener(
         (el.type==='checkbox'||el.tagName==='SELECT')?'change':'input',
@@ -279,10 +271,8 @@ function sync(id,c){
   d.firCodes=c.querySelector('.fir').value
     .toUpperCase().split(/[\s,;]+/).filter(Boolean);
   d.route=c.querySelector('.route').value.toUpperCase();
-  d.routeMinFlightLevel=Number(
-    c.querySelector('.minfl').value||300
-  );
-  d.includeAltitudeUnknown=c.querySelector('.unknown').checked;
+  d.routeMinFlightLevel=300;
+  d.includeAltitudeUnknown=true;
   ui();
 }
 function selectAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>{if(!S.selected[s.id])S.selected[s.id]=base(s)});render()}function clearAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>delete S.selected[s.id]);render()}
@@ -350,14 +340,65 @@ async function analyze(){
   }
 }
 async function test(){loading(true,'API 연결 테스트','Pre-Production 인증 토큰을 요청하고 있습니다.');try{const r=await get('testConnection');msg(r.message)}catch(e){msg(e.message,true)}finally{loading(false)}}
-function renderResults(r){document.getElementById('results').classList.remove('hidden');document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);const box=document.getElementById('legs');box.innerHTML='';r.legs.forEach((x,li)=>{const a=document.createElement('article');a.className='leg';a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}<div class="wrap">${notams(x.notams,li)}</div>${excludedNotams(x.excludedByTime||[],li)}`;box.appendChild(a)});document.querySelectorAll('.row').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.id).classList.toggle('open'));
-document.querySelectorAll('.excluded-toggle').forEach(btn=>btn.onclick=()=>{
-  const box=document.getElementById(btn.dataset.target);
-  const hidden=box.classList.toggle('hidden');
-  btn.textContent=hidden
-    ? `분석시간 밖 NOTAM ${btn.dataset.count}건 보기`
-    : `분석시간 밖 NOTAM ${btn.dataset.count}건 닫기`;
-})}
+function renderResults(r){
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);
+  const box=document.getElementById('legs');
+  box.innerHTML='';
+
+  r.legs.forEach((x,li)=>{
+    const a=document.createElement('article');
+    a.className='leg';
+    const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
+    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div>${mini(x.summary)}</div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
+    box.appendChild(a);
+  });
+
+  document.querySelectorAll('.route-alt-btn').forEach(btn=>{
+    btn.onclick=()=>applyRouteAltitudeFilter(btn.dataset.leg,btn.dataset.filter);
+  });
+
+  // 기존 기본값과 동일하게 항로 결과는 처음에 FL300 이상만 표시.
+  document.querySelectorAll('.route-alt-filter').forEach(group=>{
+    applyRouteAltitudeFilter(group.dataset.leg,'FL300_PLUS');
+  });
+
+  document.querySelectorAll('.excluded-toggle').forEach(btn=>btn.onclick=()=>{
+    const box=document.getElementById(btn.dataset.target);
+    const hidden=box.classList.toggle('hidden');
+    btn.textContent=hidden
+      ? `분석시간 밖 NOTAM ${btn.dataset.count}건 보기`
+      : `분석시간 밖 NOTAM ${btn.dataset.count}건 닫기`;
+  });
+}
+
+function routeAltitudeControls(a,li){
+  const high=(a||[]).filter(n=>(n.routeAltitudeBucket||'BELOW_300_OR_UNKNOWN')==='FL300_PLUS').length;
+  const other=(a||[]).length-high;
+  return `<div class="route-alt-filter" data-leg="${li}"><button type="button" class="route-alt-btn" data-leg="${li}" data-filter="FL300_PLUS">FL300 이상 NOTAM <span class="route-alt-count">${high}</span></button><button type="button" class="route-alt-btn" data-leg="${li}" data-filter="BELOW_300_OR_UNKNOWN">FL300 이상 제외 전체 NOTAM <span class="route-alt-count">${other}</span></button></div><div id="route-filter-state-${li}" class="route-filter-state"></div>`;
+}
+
+function applyRouteAltitudeFilter(li,filter){
+  const rows=document.querySelectorAll(`.route-notam-row[data-leg="${li}"]`);
+  let shown=0;
+  rows.forEach(row=>{
+    const visible=row.dataset.altitude===filter;
+    row.classList.toggle('hidden-by-altitude',!visible);
+    if(visible) shown++;
+  });
+
+  document.querySelectorAll(`.route-alt-btn[data-leg="${li}"]`).forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.filter===filter);
+  });
+
+  const state=document.getElementById(`route-filter-state-${li}`);
+  if(state){
+    state.textContent=filter==='FL300_PLUS'
+      ? `스케줄 영향시간대 NOTAM 중 FL300 이상 영향 ${shown}건 표시`
+      : `스케줄 영향시간대 NOTAM 중 FL300 이상을 제외한 ${shown}건 표시 (고도 미상 포함)`;
+  }
+}
+
 function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 18px">계획항로에 AIRWAY 형식 토큰이 없습니다.</div>';const max=Math.max(1,...a.map(x=>x.notams.length));let rows='';for(let i=0;i<max;i++)rows+=`<tr>${a.map(x=>`<td>${x.notams[i]?esc(x.notams[i].number):''}</td>`).join('')}</tr>`;return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4><div class="wrap"><table><thead><tr>${a.map(x=>`<th class="count">${x.count}</th>`).join('')}</tr><tr>${a.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`}
 function qRowClass(n){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
@@ -383,23 +424,28 @@ function formatQCodeCell(n,q){
   const value=decoded||dc.primary||'Q-CODE Signification';
   return `<span class="qv ${esc(c)}">${esc(value)}</span><br><span class="muted">${esc(label)}</span>`;
 }
-function notams(a,li){
+function notams(a,li,analysisMode){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
-  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>원문</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map((n,i)=>{
-    const id=`d-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
+  return `<table><thead><tr><th>등급</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map(n=>{
+    const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,330))}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr><tr id="${id}" class="detail"><td colspan="8"><b>판정 근거</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(raw)}</pre></td></tr>`
-  }).join('')}</tbody></table>`
+    const isRoute=analysisMode==='ROUTE';
+    const altitude=n.routeAltitudeBucket||'BELOW_300_OR_UNKNOWN';
+    const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
+    const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
+    return `<tr class="${rowClass}"${rowAttrs}><td><span class="tag ${n.severity}">${n.severity}</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`;
+  }).join('')}</tbody></table>`;
 }
+
 function excludedNotams(a,li){
   if(!a.length)return '';
   const target=`excluded-${li}`;
-  const rows=a.map((n,i)=>{
-    const id=`x-${li}-${i}`,q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
+  const rows=a.map(n=>{
+    const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}" data-id="${id}"><td><span class="tag LOW">시간외</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td>${esc(cut(n.text,300))}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr><tr id="${id}" class="detail"><td colspan="8"><b>제외 사유</b><ul>${(n.reasons||[]).map(v=>`<li>${esc(v)}</li>`).join('')}</ul>${impactDetail(n)}<pre>${esc(raw)}</pre></td></tr>`
+    return `<tr class="row ${qRowClass(n)}"><td><span class="tag LOW">시간외</span></td><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`
   }).join('');
-  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>원문</th><th>NOTAM 원본</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>구분</th><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
 }
 function formatNotamValidity(n){
   const t=n.impactTime||{};
