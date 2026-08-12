@@ -618,6 +618,87 @@ function formatQCodeCell(n,q){
 }
 
 
+function ensureArcConnectionsInPolygon(blockText,baseCoords){
+  const raw=String(blockText||'').toUpperCase();
+  const coords=Array.isArray(baseCoords)?[...baseCoords]:[];
+
+  /*
+   * 예:
+   * THE LINE CONNECTING 253107N1280953E TO 255335N1283000E IS THE MINOR
+   * ARC WITH A RADIUS OF 50NM FM 261230N1273834E.
+   *
+   * 해석:
+   *   A = 253107N1280953E  (ARC 시작점)
+   *   B = 255335N1283000E  (ARC 끝점)
+   *   C = 261230N1273834E  (ARC 중심점)
+   *
+   * Polygon vertex에는 A -> B 연결관계가 필요하다.
+   * C는 중심점이므로 polygon vertex로 넣지 않는다.
+   *
+   * 중요한 점:
+   * B가 좌표열의 다른 위치에 이미 존재하더라도
+   * "중복"이라는 이유로 제거하지 않는다.
+   */
+  const arcRe=
+    /THE\s+LINE\s+CONNECTING\s+(\d{6}[NS]\d{7}[EW])\s+TO\s+(\d{6}[NS]\d{7}[EW])\s+IS\s+THE\s+(?:MINOR|MAJOR)\s+ARC\b[\s\S]*?(?:FM|FROM)\s+(\d{6}[NS]\d{7}[EW])/g;
+
+  let m;
+  while((m=arcRe.exec(raw))!==null){
+    const a=m[1];
+    const b=m[2];
+
+    // A가 polygon 좌표열에 있으면 A 바로 다음이 B인지 확인한다.
+    // 여러 번 나타나는 경우에는 뒤쪽 occurrence부터 확인하여
+    // 원래 polygon 경계의 순서를 최대한 보존한다.
+    let aIndex=-1;
+    for(let i=coords.length-1;i>=0;i--){
+      if(coords[i]===a){
+        aIndex=i;
+        break;
+      }
+    }
+
+    if(aIndex>=0){
+      if(coords[aIndex+1]!==b){
+        coords.splice(aIndex+1,0,b);
+      }
+    }else{
+      // 드물게 본래 좌표열에 A가 누락됐지만 ARC 문장에 명시된 경우
+      // 관계 자체를 잃지 않도록 A -> B를 끝에 추가한다.
+      coords.push(a,b);
+    }
+  }
+
+  return coords;
+}
+
+function extractBoundaryPolygonCoordinates(blockText){
+  const raw=String(blockText||'').toUpperCase();
+  const coordRe=/\b\d{6}[NS]\d{7}[EW]\b/g;
+
+  /*
+   * BOUNDED BY 뒤에는 실제 polygon vertex 목록이 먼저 나오고,
+   * 이후 THE LINE CONNECTING ... ARC ... 같은 geometry 설명이
+   * 이어질 수 있다.
+   *
+   * geometry 설명에 반복되는 A/B 좌표와 ARC 중심점 C를
+   * 단순히 전부 polygon vertex로 넣으면 도형이 왜곡될 수 있다.
+   * 따라서 THE LINE CONNECTING 문장 이전까지를 기본 vertex 목록으로 사용한다.
+   */
+  const geometryStart=raw.search(/\bTHE\s+LINE\s+CONNECTING\b/);
+  const vertexPart=geometryStart>=0?raw.slice(0,geometryStart):raw;
+
+  let coords=vertexPart.match(coordRe)||[];
+
+  /*
+   * ARC 문장을 읽어 A -> B 관계를 보강한다.
+   * 기존 B가 다른 곳에 존재해도 전역 중복제거는 하지 않는다.
+   */
+  coords=ensureArcConnectionsInPolygon(raw,coords);
+
+  return coords;
+}
+
 function extractNotamCoordinateGroups(text){
   const raw=String(text||'').toUpperCase();
   const coordRe=/\b\d{6}[NS]\d{7}[EW]\b/g;
@@ -628,70 +709,72 @@ function extractNotamCoordinateGroups(text){
 
   /*
    * 1) "(1)AIRSPACE ... (2)AIRSPACE ..."처럼
-   *    괄호 번호가 독립 AIRSPACE 구역을 시작하는 경우 우선 분리한다.
-   *
-   *    특정 RELEASING POINT / EXP FLT AREA 등의 문구에는 의존하지 않는다.
+   *    괄호 번호가 독립 AIRSPACE/AREA 구역을 시작하는 경우.
    */
   const numberedAirspace=
     /\(\s*\d+\s*\)\s*(?:AIRSPACE|AREA)\s*:\s*([\s\S]*?)(?=\(\s*\d+\s*\)\s*(?:AIRSPACE|AREA)\s*:|\bRMK\s*:|$)/g;
 
   let m;
   while((m=numberedAirspace.exec(raw))!==null){
-    const coords=m[1].match(coordRe)||[];
-    if(coords.length) groups.push(coords);
+    const block=m[1];
+
+    if(/\bBOUNDED\s+BY\b/.test(block)){
+      const coords=extractBoundaryPolygonCoordinates(block);
+      if(coords.length) groups.push(coords);
+    }else{
+      const coords=block.match(coordRe)||[];
+      if(coords.length) groups.push(coords);
+    }
   }
 
   if(groups.length) return groups;
 
   /*
-   * 2) NOTAM의 상위 번호 항목 구조:
+   * 2) NOTAM 상위 번호 항목:
+   *    1. ...
+   *    2. ...
+   *    4. ...
    *
-   *    1. .... 좌표들
-   *    2. ....
-   *    3. ....
-   *    4. .... 좌표들
-   *
-   *    각 "숫자." 항목을 독립 블록으로 보고,
-   *    좌표가 있는 블록만 별도 그룹으로 만든다.
-   *
-   *    예:
-   *      1.RELEASING POINT: ... 15개 좌표
-   *      4.EXP FLT AREA: ... polygon 좌표
-   *
-   *    => 서로 합치지 않고 그룹 1 / 그룹 2로 분리.
+   * RELEASING POINT 같은 단순 점 목록은 polygon으로 강제 해석하지 않는다.
+   * 다만 해당 section 안에 BOUNDED BY가 있으면 polygon 해석을 적용한다.
    */
   const sectionRe=
     /(?:^|\s)(\d{1,2})\.\s*([\s\S]*?)(?=(?:\s\d{1,2}\.\s*[A-Z])|$)/g;
 
   const sectionGroups=[];
   while((m=sectionRe.exec(raw))!==null){
-    const coords=m[2].match(coordRe)||[];
-    if(coords.length) sectionGroups.push(coords);
+    const block=m[2];
+
+    if(/\bBOUNDED\s+BY\b/.test(block)){
+      const coords=extractBoundaryPolygonCoordinates(block);
+      if(coords.length) sectionGroups.push(coords);
+    }else{
+      const coords=block.match(coordRe)||[];
+      if(coords.length) sectionGroups.push(coords);
+    }
   }
 
   if(sectionGroups.length) return sectionGroups;
 
   /*
-   * 3) 번호 항목은 없지만 BOUNDED BY / FLW POINTS 계열이
-   *    여러 번 반복되는 경우에는 각 블록을 별도 그룹으로 본다.
-   *
-   *    여기서도 앞 문구의 정확한 명칭은 하드코딩하지 않고,
-   *    좌표 구역을 나타내는 구조적인 표현만 이용한다.
+   * 3) 번호 구조가 없고 BOUNDED BY가 반복되는 경우.
+   *    각 boundary block을 독립 polygon 그룹으로 처리한다.
    */
   const boundaryRe=
     /(?:BOUNDED\s+BY(?:\s+FLW)?\s+POINTS|BOUNDED\s+BY)\s*([\s\S]*?)(?=(?:BOUNDED\s+BY(?:\s+FLW)?\s+POINTS|BOUNDED\s+BY)|\bRMK\s*:|$)/g;
 
   const boundaryGroups=[];
   while((m=boundaryRe.exec(raw))!==null){
-    const coords=m[1].match(coordRe)||[];
+    const coords=extractBoundaryPolygonCoordinates(m[1]);
     if(coords.length) boundaryGroups.push(coords);
   }
 
   if(boundaryGroups.length) return boundaryGroups;
 
   /*
-   * 4) 위와 같은 구조가 전혀 없는 일반 NOTAM은
-   *    원문 전체 좌표를 하나의 그룹으로 fallback 처리한다.
+   * 4) 구조가 없는 일반 NOTAM:
+   *    기존과 동일하게 원문 좌표를 occurrence 순서 그대로 하나의 그룹으로 사용.
+   *    전역 중복제거는 하지 않는다.
    */
   const all=raw.match(coordRe)||[];
   return all.length?[all]:[];
