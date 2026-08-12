@@ -1031,6 +1031,15 @@ const KML_DISPLAY_ALTITUDE_FT=500000;
 const KML_DISPLAY_ALTITUDE_M=KML_DISPLAY_ALTITUDE_FT*0.3048;
 
 /*
+ * Polygon 윗면에서 고도 라벨까지의 표시용 높이.
+ * 실제 NOTAM 고도와는 무관하며 Google Earth에서
+ * Polygon과 라벨을 시각적으로 분리하기 위한 값이다.
+ */
+const KML_LABEL_OFFSET_FT=30000;
+const KML_LABEL_ALTITUDE_M=
+  (KML_DISPLAY_ALTITUDE_FT+KML_LABEL_OFFSET_FT)*0.3048;
+
+/*
  * backend lowerLimit / upperLimit 값이 문자열, 숫자 또는 객체로
  * 전달되는 경우를 모두 최대한 안전하게 표시 문자열로 바꾼다.
  */
@@ -1194,8 +1203,8 @@ function buildKmlPolygonPlacemark(group){
   }
 
   /*
-   * 모든 Polygon의 시각적 높이는 500,000 FT.
-   * 실제 NOTAM 고도는 geometry 높이에 사용하지 않고 Label에만 표시한다.
+   * Polygon 자체는 실제 NOTAM 고도와 관계없이
+   * 지면부터 500,000 FT까지 동일한 높이로 표시한다.
    */
   const coordinates=ring
     .map(p=>`${p.lon.toFixed(8)},${p.lat.toFixed(8)},${KML_DISPLAY_ALTITUDE_M.toFixed(2)}`)
@@ -1207,19 +1216,56 @@ function buildKmlPolygonPlacemark(group){
     `구역 ${group.groupIndex}`
   ].filter(Boolean).join(' · ');
 
+  /*
+   * 실제 NOTAM 영향고도는 geometry 높이에 사용하지 않고
+   * 라벨 문자열에만 사용한다.
+   * 예: ~FL320 / ~FL500 / ~UNL
+   */
   const altitudeLabel=actualAltitudeLabel(group);
   const center=polygonCenter(group.coords);
 
-  /*
-   * 라벨은 Polygon 윗부분에 표시.
-   * Geometry는 500,000FT 고정이지만 문구는 실제 영향고도.
-   */
-  const labelPlacemark=center ? `
+  let leaderAndLabel='';
+
+  if(center){
+    const lon=center.lon.toFixed(8);
+    const lat=center.lat.toFixed(8);
+    const polygonTop=KML_DISPLAY_ALTITUDE_M.toFixed(2);
+    const labelTop=KML_LABEL_ALTITUDE_M.toFixed(2);
+
+    /*
+     * 1) Polygon 윗면에서 시작하는 흰색 수직 연결선
+     *    extrude를 사용하지 않으므로 지면까지 내려가지 않는다.
+     *
+     * 2) 연결선 상단의 삼각형 마커 + 실제 영향고도 라벨
+     */
+    leaderAndLabel=`
+    <Placemark>
+      <name></name>
+      <Style>
+        <LineStyle>
+          <color>ffffffff</color>
+          <width>2</width>
+        </LineStyle>
+      </Style>
+      <LineString>
+        <extrude>0</extrude>
+        <tessellate>0</tessellate>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <coordinates>
+          ${lon},${lat},${polygonTop}
+          ${lon},${lat},${labelTop}
+        </coordinates>
+      </LineString>
+    </Placemark>
+
     <Placemark>
       <name>${xmlEsc(altitudeLabel)}</name>
       <Style>
         <IconStyle>
-          <scale>0</scale>
+          <scale>0.75</scale>
+          <Icon>
+            <href>https://maps.google.com/mapfiles/kml/shapes/triangle.png</href>
+          </Icon>
         </IconStyle>
         <LabelStyle>
           <color>ff00ff00</color>
@@ -1229,17 +1275,18 @@ function buildKmlPolygonPlacemark(group){
       <Point>
         <extrude>0</extrude>
         <altitudeMode>relativeToGround</altitudeMode>
-        <coordinates>${center.lon.toFixed(8)},${center.lat.toFixed(8)},${KML_DISPLAY_ALTITUDE_M.toFixed(2)}</coordinates>
+        <coordinates>${lon},${lat},${labelTop}</coordinates>
       </Point>
-    </Placemark>` : '';
+    </Placemark>`;
+  }
 
   return `
     <Placemark>
       <name>${xmlEsc(name)}</name>
       <Style>
         <LineStyle>
-          <color>ff00ff00</color>
-          <width>2</width>
+          <color>ffffffff</color>
+          <width>1.5</width>
         </LineStyle>
         <PolyStyle>
           <color>5f00ff00</color>
@@ -1256,7 +1303,7 @@ function buildKmlPolygonPlacemark(group){
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
-    ${labelPlacemark}`;
+    ${leaderAndLabel}`;
 }
 
 function downloadSelectedKml(){
