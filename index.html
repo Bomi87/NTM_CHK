@@ -46,6 +46,15 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 .kml-toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:0 0 12px}
 .kml-toolbar .btn{padding:9px 12px;font-size:12px}
 .kml-selected-count{font-size:12px;color:var(--muted);font-weight:800}
+.manual-panel{border:1px solid var(--line);border-radius:13px;padding:18px;background:#fff}
+.manual-mode-tabs{display:flex;gap:8px;margin-bottom:16px}
+.manual-mode-btn{border:1px solid var(--line);background:#fff;color:var(--muted);padding:10px 16px;border-radius:10px;font-weight:900;cursor:pointer}
+.manual-mode-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}
+.manual-grid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:end}
+.manual-range{margin-top:14px;border:1px solid #dbe5f3;background:#f7faff;border-radius:10px;padding:12px 14px;font-size:13px;color:#465166}
+.manual-range b{color:var(--p)}
+@media(max-width:800px){.manual-grid{grid-template-columns:1fr}}
+
 .raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-width:720px}
 .qv{line-height:1.35}
 .route-alt-filter{display:flex;gap:8px;flex-wrap:wrap;margin:14px 18px 4px}.route-alt-btn{border:1px solid #cfd7e3;background:#fff;color:#536075;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer}.route-alt-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.route-alt-count{font-variant-numeric:tabular-nums}.route-filter-state{margin:8px 18px 0;color:var(--muted);font-size:12px}.route-notam-row.hidden-by-altitude{display:none}
@@ -74,12 +83,12 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 <header class="top"><div><div class="eyebrow">FAA NMS PRE-PRODUCTION · SCHEDULE IMPACT</div><h1>NOTAM Schedule Analyzer</h1><div class="muted">스케줄별로 출발공항·도착공항·FIR을 개별 선택하고 AIRWAY 영향을 분석합니다.</div></div><div class="actions"><button id="testBtn" class="btn secondary">API 연결 테스트</button><span id="cred" class="badge">확인 중</span><span class="badge">PRE-PROD</span></div></header>
 
 <section class="panel">
-<div class="heading"><div class="left"><span class="step">1</span><h2>항공기 및 스케줄 선택</h2></div><div><button id="allBtn" class="textbtn">전체 선택</button><button id="clearBtn" class="textbtn">선택 해제</button></div></div>
-<div class="tabs"><button class="tab active" data-a="ACJ">ACJ</button><button class="tab" data-a="G650">G650</button></div>
+<div class="heading"><div class="left"><span class="step">1</span><h2>항공기 및 스케줄 선택</h2></div><div id="selectionActions"><button id="allBtn" class="textbtn">전체 선택</button><button id="clearBtn" class="textbtn">선택 해제</button></div></div>
+<div class="tabs"><button class="tab active" data-a="ACJ">ACJ</button><button class="tab" data-a="G650">G650</button><button class="tab" data-a="MANUAL">Manual</button></div>
 <div id="stateBox" class="state">스케줄을 불러오는 중입니다.</div><div id="list" class="list"></div>
 </section>
 
-<section class="panel">
+<section id="timeConditionPanel" class="panel">
 <div class="heading"><div class="left"><span class="step">2</span><h2>분석 시간 조건</h2></div></div>
 <div class="condition">
 <label>출발 전 여유시간<div class="unit"><input id="before" type="number" min="0" max="24" step=".5" value="2"><span>시간</span></div></label>
@@ -109,7 +118,16 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 
 <script>
 const BACKEND_URL='https://script.google.com/macros/s/AKfycbx5Zh7vMN03M2InUw467oQAFTQn3Eqiewch1TuCcVsFEwl5FqqsEaFwPBnTDKdgD99p-Q/exec';
-const S={aircraft:'ACJ',byAircraft:{},selected:{}};
+const S={
+  aircraft:'ACJ',
+  byAircraft:{},
+  selected:{},
+  manual:{
+    type:'AIRPORT',
+    code:'',
+    date:''
+  }
+};
 const AIRWAY_NOTAM_POPUPS={};
 const LEG_NOTAM_LOOKUP={};
 const KML_COORD_GROUPS={};
@@ -169,6 +187,19 @@ async function switchA(a){
     b=>b.classList.toggle('active',b.dataset.a===a)
   );
 
+  const timePanel=document.getElementById('timeConditionPanel');
+  const selectionActions=document.getElementById('selectionActions');
+
+  if(a==='MANUAL'){
+    if(timePanel) timePanel.classList.add('hidden');
+    if(selectionActions) selectionActions.classList.add('hidden');
+    renderManual();
+    return;
+  }
+
+  if(timePanel) timePanel.classList.remove('hidden');
+  if(selectionActions) selectionActions.classList.remove('hidden');
+
   if(!S.byAircraft[a]){
     loading(true,'스케줄 로딩 중',`${a} 스케줄을 불러오고 있습니다.`);
     try{
@@ -192,8 +223,169 @@ async function load(a){
     msg(e.message,true);
   }
 }
+
+function todayUtcYmd(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function renderManual(){
+  const box=document.getElementById('list');
+  const stateBox=document.getElementById('stateBox');
+
+  if(stateBox) stateBox.classList.add('hidden');
+
+  if(!S.manual.date){
+    S.manual.date=todayUtcYmd();
+  }
+
+  box.innerHTML=`
+    <div class="manual-panel">
+      <div class="manual-mode-tabs">
+        <button type="button" class="manual-mode-btn ${S.manual.type==='AIRPORT'?'active':''}" data-manual-type="AIRPORT">공항</button>
+        <button type="button" class="manual-mode-btn ${S.manual.type==='FIR'?'active':''}" data-manual-type="FIR">FIR</button>
+      </div>
+
+      <div class="manual-grid">
+        <label>${S.manual.type==='AIRPORT'?'공항 코드':'FIR 코드'}
+          <input id="manualCode"
+            value="${esc(S.manual.code||'')}"
+            maxlength="4"
+            placeholder="${S.manual.type==='AIRPORT'?'예: RKSI, RJAA':'예: RJJJ, KZNY'}">
+        </label>
+
+        <label>조회 날짜 (UTC)
+          <input id="manualDate" type="date" value="${esc(S.manual.date||'')}">
+        </label>
+      </div>
+
+      <div id="manualRange" class="manual-range"></div>
+    </div>`;
+
+  box.querySelectorAll('.manual-mode-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      S.manual.type=btn.dataset.manualType;
+      S.manual.code='';
+      renderManual();
+    };
+  });
+
+  const codeEl=document.getElementById('manualCode');
+  const dateEl=document.getElementById('manualDate');
+
+  codeEl.oninput=()=>{
+    S.manual.code=codeEl.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+    if(codeEl.value!==S.manual.code) codeEl.value=S.manual.code;
+    updateManualUi();
+  };
+
+  dateEl.onchange=()=>{
+    S.manual.date=dateEl.value;
+    updateManualUi();
+  };
+
+  updateManualUi();
+}
+
+function updateManualUi(){
+  const code=String(S.manual.code||'').trim().toUpperCase();
+  const date=String(S.manual.date||'').trim();
+  const type=S.manual.type;
+
+  const range=document.getElementById('manualRange');
+  if(range){
+    range.innerHTML=date
+      ? `<b>${esc(date)} 00:00Z ~ ${esc(date)} 23:59Z</b> 범위의 ${type==='AIRPORT'?'공항':'FIR'} NOTAM을 조회합니다.<br><span class="muted">Manual 조회에는 2번 분석 시간 조건이 적용되지 않습니다.</span>`
+      : '조회 날짜를 선택하세요.';
+  }
+
+  document.getElementById('countText').textContent='Manual 조회';
+  document.getElementById('preview').textContent=
+    code&&date
+      ? `조회 예정: ${type==='AIRPORT'?'공항':'FIR'} ${code} · ${date} 00:00Z ~ 23:59Z`
+      : '공항/FIR 코드와 조회 날짜를 입력하세요.';
+
+  const btn=document.getElementById('analyzeBtn');
+  btn.textContent='Manual NOTAM 분석';
+  btn.disabled=!(code&&date&&/^[A-Z0-9]{3,4}$/.test(code));
+}
+
+function makeManualSchedule(){
+  const code=String(S.manual.code||'').trim().toUpperCase();
+  const date=String(S.manual.date||'').trim();
+  const type=S.manual.type;
+
+  if(!/^[A-Z0-9]{3,4}$/.test(code)){
+    throw new Error('공항/FIR 코드는 3~4자리 코드로 입력하세요.');
+  }
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){
+    throw new Error('조회 날짜를 선택하세요.');
+  }
+
+  const startUtc=`${date}T00:00:00.000Z`;
+  const endUtc=`${date}T23:59:00.000Z`;
+
+  if(isNaN(new Date(startUtc).getTime())||isNaN(new Date(endUtc).getTime())){
+    throw new Error('조회 날짜가 올바르지 않습니다.');
+  }
+
+  if(type==='AIRPORT'){
+    return {
+      schedule:{
+        id:`MANUAL-AIRPORT-${code}-${date}`,
+        aircraft:'ACJ',
+        displayText:`MANUAL · AIRPORT ${code} · ${date} 00:00Z ~ 23:59Z`,
+        departureCode:code,
+        arrivalCode:code,
+        departureUtc:startUtc,
+        arrivalUtc:`${date}T00:01:00.000Z`,
+        analysisMode:'AIRPORT',
+        queryDeparture:false,
+        queryArrival:false,
+        manualAirportCodes:[{code,referenceRole:'DEPARTURE'}],
+        manualAirportReference:'DEPARTURE',
+        firCodes:[],
+        route:'',
+        routeMinFlightLevel:300,
+        includeAltitudeUnknown:true
+      },
+      beforeHours:0,
+      afterHours:(23*60+59)/60
+    };
+  }
+
+  return {
+    schedule:{
+      id:`MANUAL-FIR-${code}-${date}`,
+      aircraft:'ACJ',
+      displayText:`MANUAL · FIR ${code} · ${date} 00:00Z ~ 23:59Z`,
+      departureCode:code,
+      arrivalCode:code,
+      departureUtc:startUtc,
+      arrivalUtc:endUtc,
+      analysisMode:'ROUTE',
+      queryDeparture:false,
+      queryArrival:false,
+      manualAirportCodes:[],
+      manualAirportReference:'DEPARTURE',
+      firCodes:[code],
+      route:'',
+      routeMinFlightLevel:300,
+      includeAltitudeUnknown:true
+    },
+    beforeHours:0,
+    afterHours:0
+  };
+}
+
 function base(s){return {...s,analysisMode:'AIRPORT',queryDeparture:true,queryArrival:true,manualAirportCodes:[],manualAirportReference:'ARRIVAL',firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
 function render(){
+  const timePanel=document.getElementById('timeConditionPanel');
+  const selectionActions=document.getElementById('selectionActions');
+  if(timePanel) timePanel.classList.remove('hidden');
+  if(selectionActions) selectionActions.classList.remove('hidden');
+  document.getElementById('analyzeBtn').textContent='선택한 스케줄 NOTAM 분석';
+
   const arr=S.byAircraft[S.aircraft]||[];
   const box=document.getElementById('list');
   box.innerHTML='';
@@ -324,8 +516,24 @@ function sync(id,c){
   d.includeAltitudeUnknown=true;
   ui();
 }
-function selectAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>{if(!S.selected[s.id])S.selected[s.id]=base(s)});render()}function clearAll(){(S.byAircraft[S.aircraft]||[]).forEach(s=>delete S.selected[s.id]);render()}
+function selectAll(){
+  if(S.aircraft==='MANUAL') return;
+  (S.byAircraft[S.aircraft]||[]).forEach(s=>{
+    if(!S.selected[s.id]) S.selected[s.id]=base(s);
+  });
+  render();
+}
+function clearAll(){
+  if(S.aircraft==='MANUAL') return;
+  (S.byAircraft[S.aircraft]||[]).forEach(s=>delete S.selected[s.id]);
+  render();
+}
 function ui(){
+  if(S.aircraft==='MANUAL'){
+    updateManualUi();
+    return;
+  }
+
   const a=Object.values(S.selected);
   document.getElementById('countText').textContent=`${a.length}개 Leg 선택`;
 
@@ -348,6 +556,40 @@ function ui(){
   document.getElementById('analyzeBtn').disabled=!a.length;
 }
 async function analyze(){
+  if(S.aircraft==='MANUAL'){
+    let manual;
+    try{
+      manual=makeManualSchedule();
+    }catch(e){
+      msg(e.message,true);
+      return;
+    }
+
+    loading(
+      true,
+      'FAA NOTAM Manual 분석 중',
+      `${S.manual.date} 00:00Z ~ 23:59Z 범위를 조회하고 있습니다.`
+    );
+
+    try{
+      const r=await post('analyze',{
+        schedules:[manual.schedule],
+        extraCodes:[],
+        beforeHours:manual.beforeHours,
+        afterHours:manual.afterHours,
+        includeLow:true
+      });
+
+      renderResults(r);
+      document.getElementById('results').scrollIntoView({behavior:'smooth'});
+    }catch(e){
+      msg(e.message,true);
+    }finally{
+      loading(false);
+    }
+    return;
+  }
+
   const schedules=Object.values(S.selected);
 
   for(const s of schedules){
