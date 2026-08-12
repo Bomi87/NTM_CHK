@@ -41,6 +41,11 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 .coord-block{font-family:Consolas,monospace;font-size:11px;line-height:1.5;white-space:normal;word-break:break-word}
 .coord-group{padding:5px 0}
 .coord-group+.coord-group{border-top:1px dashed #dfe5ee;margin-top:5px;padding-top:9px}
+.coord-group-row{display:grid;grid-template-columns:1fr 28px;gap:8px;align-items:start}
+.coord-select{width:17px;height:17px;accent-color:var(--p);margin-top:3px;cursor:pointer}
+.kml-toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:0 0 12px}
+.kml-toolbar .btn{padding:9px 12px;font-size:12px}
+.kml-selected-count{font-size:12px;color:var(--muted);font-weight:800}
 .raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-width:720px}
 .qv{line-height:1.35}
 .route-alt-filter{display:flex;gap:8px;flex-wrap:wrap;margin:14px 18px 4px}.route-alt-btn{border:1px solid #cfd7e3;background:#fff;color:#536075;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer}.route-alt-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.route-alt-count{font-variant-numeric:tabular-nums}.route-filter-state{margin:8px 18px 0;color:var(--muted);font-size:12px}.route-notam-row.hidden-by-altitude{display:none}
@@ -85,7 +90,18 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 
 <div class="bar"><div><strong id="countText">0개 Leg 선택</strong><div id="preview" style="font-size:12px;color:#cbd4e2;margin-top:4px">조회 대상 없음</div></div><button id="analyzeBtn" class="btn primary" disabled>선택한 스케줄 NOTAM 분석</button></div>
 
-<section id="results" class="results hidden"><div class="heading"><div class="left"><h2>NOTAM 영향 분석 결과</h2></div><span id="generated" class="muted"></span></div><div id="legs"></div></section>
+<section id="results" class="results hidden">
+  <div class="heading">
+    <div class="left"><h2>NOTAM 영향 분석 결과</h2></div>
+    <span id="generated" class="muted"></span>
+  </div>
+  <div class="kml-toolbar">
+    <span id="kmlSelectedCount" class="kml-selected-count">선택 좌표 0개</span>
+    <button id="clearKmlBtn" type="button" class="btn secondary">전체 체크 해제</button>
+    <button id="makeKmlBtn" type="button" class="btn primary">선택 좌표 KML 생성</button>
+  </div>
+  <div id="legs"></div>
+</section>
 </div>
 
 <div id="overlay" class="overlay hidden"><div class="loader"><div class="spin"></div><strong id="loadTitle">처리 중</strong><span id="loadMsg" class="muted">잠시만 기다려 주세요.</span></div></div>
@@ -96,6 +112,7 @@ const BACKEND_URL='https://script.google.com/macros/s/AKfycbx5Zh7vMN03M2InUw467o
 const S={aircraft:'ACJ',byAircraft:{},selected:{}};
 const AIRWAY_NOTAM_POPUPS={};
 const LEG_NOTAM_LOOKUP={};
+const KML_COORD_GROUPS={};
 document.addEventListener('DOMContentLoaded',init);
 
 async function init(){
@@ -136,7 +153,15 @@ async function prefetchAircraft(a){
     // Silent prefetch failure: switching tabs will retry normally.
   }
 }
-function bind(){document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchA(b.dataset.a));document.getElementById('allBtn').onclick=selectAll;document.getElementById('clearBtn').onclick=clearAll;document.getElementById('analyzeBtn').onclick=analyze;document.getElementById('testBtn').onclick=test}
+function bind(){
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchA(b.dataset.a));
+  document.getElementById('allBtn').onclick=selectAll;
+  document.getElementById('clearBtn').onclick=clearAll;
+  document.getElementById('analyzeBtn').onclick=analyze;
+  document.getElementById('testBtn').onclick=test;
+  document.getElementById('clearKmlBtn').onclick=clearAllKmlSelections;
+  document.getElementById('makeKmlBtn').onclick=downloadSelectedKml;
+}
 async function switchA(a){
   S.aircraft=a;
   document.querySelectorAll('.tab').forEach(
@@ -366,6 +391,7 @@ async function test(){loading(true,'API 연결 테스트','Pre-Production 인증
 function renderResults(r){
   Object.keys(AIRWAY_NOTAM_POPUPS).forEach(k=>delete AIRWAY_NOTAM_POPUPS[k]);
   Object.keys(LEG_NOTAM_LOOKUP).forEach(k=>delete LEG_NOTAM_LOOKUP[k]);
+  Object.keys(KML_COORD_GROUPS).forEach(k=>delete KML_COORD_GROUPS[k]);
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);
   const box=document.getElementById('legs');
@@ -400,6 +426,11 @@ function renderResults(r){
       ? `분석시간 밖 NOTAM ${btn.dataset.count}건 보기`
       : `분석시간 밖 NOTAM ${btn.dataset.count}건 닫기`;
   });
+
+  document.querySelectorAll('.coord-select').forEach(cb=>{
+    cb.onchange=updateKmlSelectedCount;
+  });
+  updateKmlSelectedCount();
 }
 
 function routeAltitudeControls(a,li){
@@ -577,15 +608,19 @@ function extractNotamCoordinateGroups(text){
 
   if(!raw) return [];
 
-  /*
-   * (1)AIRSPACE ... (2)AIRSPACE ... 형태는 구역별로 분리한다.
-   * 각 numbered AIRSPACE block 안에서 좌표만 등장 순서대로 추출한다.
-   */
-  const numbered=/\(\s*\d+\s*\)\s*AIRSPACE\s*:\s*([\s\S]*?)(?=\(\s*\d+\s*\)\s*AIRSPACE\s*:|RMK\s*:|$)/g;
   const groups=[];
-  let m;
 
-  while((m=numbered.exec(raw))!==null){
+  /*
+   * 1) "(1)AIRSPACE ... (2)AIRSPACE ..."처럼
+   *    괄호 번호가 독립 AIRSPACE 구역을 시작하는 경우 우선 분리한다.
+   *
+   *    특정 RELEASING POINT / EXP FLT AREA 등의 문구에는 의존하지 않는다.
+   */
+  const numberedAirspace=
+    /\(\s*\d+\s*\)\s*(?:AIRSPACE|AREA)\s*:\s*([\s\S]*?)(?=\(\s*\d+\s*\)\s*(?:AIRSPACE|AREA)\s*:|\bRMK\s*:|$)/g;
+
+  let m;
+  while((m=numberedAirspace.exec(raw))!==null){
     const coords=m[1].match(coordRe)||[];
     if(coords.length) groups.push(coords);
   }
@@ -593,20 +628,88 @@ function extractNotamCoordinateGroups(text){
   if(groups.length) return groups;
 
   /*
-   * 번호가 없는 일반 NOTAM은 원문 전체에서 좌표를 추출하여
-   * 하나의 구역으로 표시한다.
+   * 2) NOTAM의 상위 번호 항목 구조:
+   *
+   *    1. .... 좌표들
+   *    2. ....
+   *    3. ....
+   *    4. .... 좌표들
+   *
+   *    각 "숫자." 항목을 독립 블록으로 보고,
+   *    좌표가 있는 블록만 별도 그룹으로 만든다.
+   *
+   *    예:
+   *      1.RELEASING POINT: ... 15개 좌표
+   *      4.EXP FLT AREA: ... polygon 좌표
+   *
+   *    => 서로 합치지 않고 그룹 1 / 그룹 2로 분리.
+   */
+  const sectionRe=
+    /(?:^|\s)(\d{1,2})\.\s*([\s\S]*?)(?=(?:\s\d{1,2}\.\s*[A-Z])|$)/g;
+
+  const sectionGroups=[];
+  while((m=sectionRe.exec(raw))!==null){
+    const coords=m[2].match(coordRe)||[];
+    if(coords.length) sectionGroups.push(coords);
+  }
+
+  if(sectionGroups.length) return sectionGroups;
+
+  /*
+   * 3) 번호 항목은 없지만 BOUNDED BY / FLW POINTS 계열이
+   *    여러 번 반복되는 경우에는 각 블록을 별도 그룹으로 본다.
+   *
+   *    여기서도 앞 문구의 정확한 명칭은 하드코딩하지 않고,
+   *    좌표 구역을 나타내는 구조적인 표현만 이용한다.
+   */
+  const boundaryRe=
+    /(?:BOUNDED\s+BY(?:\s+FLW)?\s+POINTS|BOUNDED\s+BY)\s*([\s\S]*?)(?=(?:BOUNDED\s+BY(?:\s+FLW)?\s+POINTS|BOUNDED\s+BY)|\bRMK\s*:|$)/g;
+
+  const boundaryGroups=[];
+  while((m=boundaryRe.exec(raw))!==null){
+    const coords=m[1].match(coordRe)||[];
+    if(coords.length) boundaryGroups.push(coords);
+  }
+
+  if(boundaryGroups.length) return boundaryGroups;
+
+  /*
+   * 4) 위와 같은 구조가 전혀 없는 일반 NOTAM은
+   *    원문 전체 좌표를 하나의 그룹으로 fallback 처리한다.
    */
   const all=raw.match(coordRe)||[];
   return all.length?[all]:[];
 }
 
-function formatNotamCoordinates(text){
+function formatNotamCoordinates(text,meta={}){
   const groups=extractNotamCoordinateGroups(text);
   if(!groups.length) return '<span class="muted">-</span>';
 
+  const notamNumber=String(meta.number||'NOTAM');
+  const location=String(meta.location||'');
+  const legIndex=Number(meta.legIndex||0);
+  const scope=String(meta.scope||'ACTIVE');
+
   return `<div class="coord-block">${groups.map((group,i)=>{
+    const key=`${scope}|${legIndex}|${notamNumber}|${i}|${Math.random().toString(36).slice(2,8)}`;
+
+    KML_COORD_GROUPS[key]={
+      key,
+      notamNumber,
+      location,
+      legIndex,
+      groupIndex:i+1,
+      coords:[...group]
+    };
+
     const label=groups.length>1?`<b>구역 ${i+1}</b><br>`:'';
-    return `<div class="coord-group">${label}${esc(group.join(' - '))}</div>`;
+
+    return `<div class="coord-group">
+      <div class="coord-group-row">
+        <div>${label}${esc(group.join(' - '))}</div>
+        <input type="checkbox" class="coord-select" data-kml-key="${esc(key)}" title="KML에 포함">
+      </div>
+    </div>`;
   }).join('')}</div>`;
 }
 
@@ -619,7 +722,12 @@ function notams(a,li,analysisMode){
     const altitude=n.routeAltitudeBucket||'ALTITUDE_FIELD_MISSING';
     const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
     const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
-    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw)}</td></tr>`;
+    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw,{
+      number:n.number||n.id||'NOTAM',
+      location:n.location||n.queryLocation||'',
+      legIndex:li,
+      scope:'ACTIVE'
+    })}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -629,7 +737,12 @@ function excludedNotams(a,li){
   const rows=a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw)}</td></tr>`
+    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw,{
+      number:n.number||n.id||'NOTAM',
+      location:n.location||n.queryLocation||'',
+      legIndex:li,
+      scope:'EXCLUDED'
+    })}</td></tr>`
   }).join('');
   return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
 }
@@ -786,6 +899,137 @@ async function parse(r){
   if(!r.ok||!j.ok) throw new Error(j.error||`HTTP ${r.status}`);
   return j.data;
 }
+
+function updateKmlSelectedCount(){
+  const count=document.querySelectorAll('.coord-select:checked').length;
+  const el=document.getElementById('kmlSelectedCount');
+  if(el) el.textContent=`선택 좌표 ${count}개`;
+}
+
+function clearAllKmlSelections(){
+  document.querySelectorAll('.coord-select').forEach(cb=>cb.checked=false);
+  updateKmlSelectedCount();
+}
+
+function dmsCoordToDecimal(coord){
+  const m=String(coord||'').toUpperCase().match(
+    /^(\d{2})(\d{2})(\d{2})([NS])(\d{3})(\d{2})(\d{2})([EW])$/
+  );
+  if(!m) return null;
+
+  let lat=Number(m[1])+Number(m[2])/60+Number(m[3])/3600;
+  let lon=Number(m[5])+Number(m[6])/60+Number(m[7])/3600;
+
+  if(m[4]==='S') lat=-lat;
+  if(m[8]==='W') lon=-lon;
+
+  return {lat,lon};
+}
+
+function xmlEsc(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&apos;');
+}
+
+function buildKmlPolygonPlacemark(group){
+  const decimal=(group.coords||[])
+    .map(dmsCoordToDecimal)
+    .filter(Boolean);
+
+  if(decimal.length<3) return '';
+
+  // KML LinearRing은 폐합이 필요하므로 첫 점과 마지막 점이 다르면 자동으로 닫는다.
+  const ring=[...decimal];
+  const first=ring[0];
+  const last=ring[ring.length-1];
+
+  if(first.lat!==last.lat || first.lon!==last.lon){
+    ring.push({...first});
+  }
+
+  const coordinates=ring
+    .map(p=>`${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`)
+    .join(' ');
+
+  const name=[
+    group.notamNumber,
+    group.location ? group.location : '',
+    `구역 ${group.groupIndex}`
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <Placemark>
+      <name>${xmlEsc(name)}</name>
+      <Style>
+        <LineStyle>
+          <color>ff00ff00</color>
+          <width>2</width>
+        </LineStyle>
+        <PolyStyle>
+          <color>7f00ff00</color>
+          <outline>1</outline>
+        </PolyStyle>
+      </Style>
+      <Polygon>
+        <extrude>0</extrude>
+        <altitudeMode>clampToGround</altitudeMode>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coordinates}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>`;
+}
+
+function downloadSelectedKml(){
+  const selected=[...document.querySelectorAll('.coord-select:checked')]
+    .map(cb=>KML_COORD_GROUPS[cb.dataset.kmlKey])
+    .filter(Boolean);
+
+  if(!selected.length){
+    msg('KML로 만들 좌표 그룹을 선택하세요.',true);
+    return;
+  }
+
+  const placemarks=selected
+    .map(buildKmlPolygonPlacemark)
+    .filter(Boolean);
+
+  if(!placemarks.length){
+    msg('선택한 좌표 중 Polygon을 만들 수 있는 그룹이 없습니다.',true);
+    return;
+  }
+
+  const kml=`<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>NTM</name>
+  ${placemarks.join('\n')}
+</Document>
+</kml>`;
+
+  const blob=new Blob([kml],{
+    type:'application/vnd.google-earth.kml+xml;charset=utf-8'
+  });
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+
+  a.href=url;
+  a.download='NTM.kml';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+  msg(`NTM.kml 생성 완료 · ${placemarks.length}개 구역`);
+}
+
 function showState(t){const e=document.getElementById('stateBox');e.textContent=t;e.classList.remove('hidden')}function loading(on,t='',m=''){document.getElementById('overlay').classList.toggle('hidden',!on);if(t)document.getElementById('loadTitle').textContent=t;if(m)document.getElementById('loadMsg').textContent=m}
 let timer;function msg(t,err=false){const e=document.getElementById('toast');e.textContent=t;e.style.background=err?'#9f2030':'#1d283b';e.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>e.classList.add('hidden'),err?7000:3500)}
 function fmt(v){const d=new Date(v);if(isNaN(d))return String(v||'-');const p=n=>String(n).padStart(2,'0'),m=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return `${p(d.getUTCDate())}${m[d.getUTCMonth()]},${p(d.getUTCHours())}${p(d.getUTCMinutes())}Z`}function label(t){return {AIRPORT:'공항',FIR:'FIR',AUTO:'자동'}[t]||t}function cut(t,n){t=String(t||'');return t.length>n?t.slice(0,n)+'…':t}function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
