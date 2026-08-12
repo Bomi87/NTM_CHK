@@ -113,6 +113,7 @@ const S={aircraft:'ACJ',byAircraft:{},selected:{}};
 const AIRWAY_NOTAM_POPUPS={};
 const LEG_NOTAM_LOOKUP={};
 const KML_COORD_GROUPS={};
+const EXCLUDED_NOTAM_LOOKUP={};
 document.addEventListener('DOMContentLoaded',init);
 
 async function init(){
@@ -392,6 +393,7 @@ function renderResults(r){
   Object.keys(AIRWAY_NOTAM_POPUPS).forEach(k=>delete AIRWAY_NOTAM_POPUPS[k]);
   Object.keys(LEG_NOTAM_LOOKUP).forEach(k=>delete LEG_NOTAM_LOOKUP[k]);
   Object.keys(KML_COORD_GROUPS).forEach(k=>delete KML_COORD_GROUPS[k]);
+  Object.keys(EXCLUDED_NOTAM_LOOKUP).forEach(k=>delete EXCLUDED_NOTAM_LOOKUP[k]);
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);
   const box=document.getElementById('legs');
@@ -399,6 +401,7 @@ function renderResults(r){
 
   r.legs.forEach((x,li)=>{
     LEG_NOTAM_LOOKUP[li]=x.notams||[];
+    EXCLUDED_NOTAM_LOOKUP[li]=x.excludedByTime||[];
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
@@ -421,6 +424,19 @@ function renderResults(r){
 
   document.querySelectorAll('.excluded-toggle').forEach(btn=>btn.onclick=()=>{
     const box=document.getElementById(btn.dataset.target);
+    const li=Number(btn.dataset.leg);
+
+    // 처음 펼칠 때만 숨겨진 제외 NOTAM을 실제로 렌더링한다.
+    if(!box.dataset.rendered){
+      box.innerHTML=renderExcludedContent(EXCLUDED_NOTAM_LOOKUP[li]||[],li);
+      box.dataset.rendered='1';
+
+      // 새로 생성된 좌표 체크박스에 이벤트 연결
+      box.querySelectorAll('.coord-select').forEach(cb=>{
+        cb.onchange=updateKmlSelectedCount;
+      });
+    }
+
     const hidden=box.classList.toggle('hidden');
     btn.textContent=hidden
       ? `분석시간 밖 NOTAM ${btn.dataset.count}건 보기`
@@ -741,23 +757,83 @@ function notams(a,li,analysisMode){
 
 function excludedNotams(a,li){
   if(!a.length)return '';
+
   const target=`excluded-${li}`;
+
+  /*
+   * 성능 최적화:
+   * 닫혀 있는 상태에서는 수백/수천 건의 원문 좌표 정규식 분석,
+   * HTML row 생성, checkbox 생성을 하지 않는다.
+   * 사용자가 버튼을 눌러 펼칠 때 renderExcludedContent()에서
+   * 최초 1회만 실제 내용을 만든다.
+   */
+  return `<div class="excluded-box">
+    <button
+      type="button"
+      class="excluded-toggle"
+      data-target="${target}"
+      data-leg="${li}"
+      data-count="${a.length}">
+      분석시간 밖 NOTAM ${a.length}건 보기
+    </button>
+    <div
+      id="${target}"
+      class="excluded-content hidden"
+      style="margin-top:10px">
+    </div>
+  </div>`;
+}
+
+function renderExcludedContent(a,li){
+  if(!a.length){
+    return '<div class="state">분석시간 밖 NOTAM이 없습니다.</div>';
+  }
+
   const rows=a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw,{
-      number:n.number||n.id||'NOTAM',
-      location:n.location||n.queryLocation||'',
-      legIndex:li,
-      scope:'EXCLUDED',
-      lowerLimit:n.lowerLimit,
-      upperLimit:n.upperLimit,
-      routeAltitudeText:n.routeAltitudeText||'',
-      rawText:raw
-    })}</td></tr>`
+
+    return `<tr class="row ${qRowClass(n)}">
+      <td>${esc(n.location||n.queryLocation)}</td>
+      <td><b>${esc(n.number||n.id||'-')}</b></td>
+      <td>${formatNotamValidity(n)}</td>
+      <td><span class="muted">분석시간과 중첩 없음</span></td>
+      <td>${formatQCodeCell(n,q)}</td>
+      <td><div class="raw-notam">${esc(raw)}</div></td>
+      <td>${formatNotamCoordinates(raw,{
+        number:n.number||n.id||'NOTAM',
+        location:n.location||n.queryLocation||'',
+        legIndex:li,
+        scope:'EXCLUDED',
+        lowerLimit:n.lowerLimit,
+        upperLimit:n.upperLimit,
+        routeAltitudeText:n.routeAltitudeText||'',
+        rawText:raw
+      })}</td>
+    </tr>`;
   }).join('');
-  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+
+  return `<div class="help" style="margin-bottom:8px">
+      선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.
+    </div>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>위치</th>
+            <th>NOTAM</th>
+            <th>NOTAM 유효시간</th>
+            <th>분석 기준시간</th>
+            <th>Q-CODE / FAA 분류</th>
+            <th>NOTAM 원본</th>
+            <th>좌표</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
+
 function formatNotamValidity(n){
   const t=n.impactTime||{};
   if(!t.notamStartUtc&&!t.notamEndUtc) return '<span class="muted">해석 불가</span>';
@@ -841,7 +917,7 @@ function get(action,p={}){
 }
 
 async function post(action, payload) {
-  const maxAttempts = 3;
+  const maxAttempts = 1;
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
