@@ -41,7 +41,7 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 .coord-block{font-family:Consolas,monospace;font-size:11px;line-height:1.5;white-space:normal;word-break:break-word}
 .coord-group{padding:5px 0}
 .coord-group+.coord-group{border-top:1px dashed #dfe5ee;margin-top:5px;padding-top:9px}
-.coord-group-row{display:grid;grid-template-columns:1fr 28px;gap:8px;align-items:start}
+.coord-group-row{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start}
 .coord-select{width:17px;height:17px;accent-color:var(--p);margin-top:3px;cursor:pointer}
 .kml-toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:0 0 12px}
 .kml-toolbar .btn{padding:9px 12px;font-size:12px}
@@ -726,8 +726,8 @@ function formatNotamCoordinates(text,meta={}){
 
     return `<div class="coord-group">
       <div class="coord-group-row">
-        <div>${label}${esc(group.join(' - '))}</div>
         <input type="checkbox" class="coord-select" data-kml-key="${esc(key)}" title="KML에 포함">
+        <div>${label}${esc(group.join(' - '))}</div>
       </div>
     </div>`;
   }).join('')}</div>`;
