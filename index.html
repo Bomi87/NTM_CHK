@@ -511,8 +511,8 @@ function openAirwayNotamPopup(key){
   const modal=ensureAirwayNotamModal();
   document.getElementById('airwayNotamModalTitle').textContent=`${n.number} · ${n.airway}`;
   document.getElementById('airwayNotamModalMeta').innerHTML=[
-    n.location?`<span class="notam-modal-chip">${esc(n.location)}</span>`:'',
-    n.airway?`<span class="notam-modal-chip">AIRWAY ${esc(n.airway)}</span>`:''
+    n.location?`<span class="notam-modal-chip">FIR: ${esc(n.location)}</span>`:'',
+    n.airway?`<span class="notam-modal-chip">Airway: ${esc(n.airway)}</span>`:''
   ].filter(Boolean).join('');
   document.getElementById('airwayNotamModalRaw').textContent=n.originalText||n.text||'NOTAM 원본이 없습니다.';
   modal.classList.remove('hidden');
