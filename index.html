@@ -91,6 +91,7 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 const BACKEND_URL='https://script.google.com/macros/s/AKfycbx5Zh7vMN03M2InUw467oQAFTQn3Eqiewch1TuCcVsFEwl5FqqsEaFwPBnTDKdgD99p-Q/exec';
 const S={aircraft:'ACJ',byAircraft:{},selected:{}};
 const AIRWAY_NOTAM_POPUPS={};
+const LEG_NOTAM_LOOKUP={};
 document.addEventListener('DOMContentLoaded',init);
 
 async function init(){
@@ -360,12 +361,14 @@ async function analyze(){
 async function test(){loading(true,'API 연결 테스트','Pre-Production 인증 토큰을 요청하고 있습니다.');try{const r=await get('testConnection');msg(r.message)}catch(e){msg(e.message,true)}finally{loading(false)}}
 function renderResults(r){
   Object.keys(AIRWAY_NOTAM_POPUPS).forEach(k=>delete AIRWAY_NOTAM_POPUPS[k]);
+  Object.keys(LEG_NOTAM_LOOKUP).forEach(k=>delete LEG_NOTAM_LOOKUP[k]);
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);
   const box=document.getElementById('legs');
   box.innerHTML='';
 
   r.legs.forEach((x,li)=>{
+    LEG_NOTAM_LOOKUP[li]=x.notams||[];
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
@@ -447,12 +450,11 @@ function matrix(a,li){
 
       const key=`${li}|${ai}|${i}|${x.airway}|${n.number||''}`;
       AIRWAY_NOTAM_POPUPS[key]={
+        legIndex:li,
         airway:x.airway||'',
+        id:n.id||'',
         number:n.number||'UNKNOWN',
-        location:n.location||'',
-        severity:n.severity||'',
-        text:n.text||'',
-        originalText:n.originalText||n.text||''
+        location:n.location||''
       };
 
       return `<td><button type="button" class="airway-notam-link" data-notam-key="${esc(key)}">${esc(n.number||'UNKNOWN')}</button></td>`;
@@ -505,16 +507,27 @@ function ensureAirwayNotamModal(){
 }
 
 function openAirwayNotamPopup(key){
-  const n=AIRWAY_NOTAM_POPUPS[key];
-  if(!n) return;
+  const ref=AIRWAY_NOTAM_POPUPS[key];
+  if(!ref) return;
+
+  const legNotams=LEG_NOTAM_LOOKUP[ref.legIndex]||[];
+
+  // AIRWAY matrix에는 원문을 중복 저장하지 않고,
+  // 이미 받은 메인 NOTAM 목록에서 id/number 기준으로 원본을 찾는다.
+  const n=legNotams.find(item=>{
+    if(ref.id && item.id && String(item.id)===String(ref.id)) return true;
+    const itemNumber=item.number||item.id||'';
+    return String(itemNumber)===String(ref.number);
+  })||{};
 
   const modal=ensureAirwayNotamModal();
-  document.getElementById('airwayNotamModalTitle').textContent=`${n.number} · ${n.airway}`;
+  document.getElementById('airwayNotamModalTitle').textContent=`${ref.number} · ${ref.airway}`;
   document.getElementById('airwayNotamModalMeta').innerHTML=[
-    n.location?`<span class="notam-modal-chip">FIR: ${esc(n.location)}</span>`:'',
-    n.airway?`<span class="notam-modal-chip">Airway: ${esc(n.airway)}</span>`:''
+    ref.location?`<span class="notam-modal-chip">FIR: ${esc(ref.location)}</span>`:'',
+    ref.airway?`<span class="notam-modal-chip">Airway: ${esc(ref.airway)}</span>`:''
   ].filter(Boolean).join('');
-  document.getElementById('airwayNotamModalRaw').textContent=n.originalText||n.text||'NOTAM 원본이 없습니다.';
+  document.getElementById('airwayNotamModalRaw').textContent=
+    n.originalText||n.text||'NOTAM 원본이 없습니다.';
   modal.classList.remove('hidden');
 }
 
