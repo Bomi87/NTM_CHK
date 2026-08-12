@@ -1035,7 +1035,7 @@ const KML_DISPLAY_ALTITUDE_M=KML_DISPLAY_ALTITUDE_FT*0.3048;
  * 실제 NOTAM 고도와는 무관하며 Google Earth에서
  * Polygon과 라벨을 시각적으로 분리하기 위한 값이다.
  */
-const KML_LABEL_OFFSET_FT=30000;
+const KML_LABEL_OFFSET_FT=120000;
 const KML_LABEL_ALTITUDE_M=
   (KML_DISPLAY_ALTITUDE_FT+KML_LABEL_OFFSET_FT)*0.3048;
 
@@ -1262,7 +1262,8 @@ function buildKmlPolygonPlacemark(group){
       <name>${xmlEsc(altitudeLabel)}</name>
       <Style>
         <IconStyle>
-          <scale>0.75</scale>
+          <color>ff0000ff</color>
+          <scale>0.9</scale>
           <Icon>
             <href>https://maps.google.com/mapfiles/kml/shapes/triangle.png</href>
           </Icon>
