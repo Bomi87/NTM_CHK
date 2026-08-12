@@ -479,7 +479,76 @@ function impactDetail(n){
   </div>`;
 }
 
-async function get(action,p={}){const u=new URL(BACKEND_URL);u.searchParams.set('action',action);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v));return parse(await fetch(u,{cache:'no-store'}))}async function post(action,payload){return parse(await fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload})}))}async function parse(r){const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){throw new Error(`백엔드 응답이 JSON이 아닙니다. HTTP ${r.status}\n${t.slice(0,500)}`)}if(!r.ok||!j.ok)throw new Error(j.error||`HTTP ${r.status}`);return j.data}
+function get(action,p={}){
+  return new Promise((resolve,reject)=>{
+    const callbackName='__gasJsonp_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const u=new URL(BACKEND_URL);
+
+    u.searchParams.set('action',action);
+    u.searchParams.set('callback',callbackName);
+    Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v));
+
+    const script=document.createElement('script');
+    let finished=false;
+
+    function cleanup(){
+      if(script.parentNode) script.parentNode.removeChild(script);
+      try{delete window[callbackName]}catch(_){window[callbackName]=undefined}
+    }
+
+    const timer=setTimeout(()=>{
+      if(finished) return;
+      finished=true;
+      cleanup();
+      reject(new Error('백엔드 응답 시간이 초과되었습니다.'));
+    },20000);
+
+    window[callbackName]=response=>{
+      if(finished) return;
+      finished=true;
+      clearTimeout(timer);
+      cleanup();
+
+      if(!response||response.ok!==true){
+        reject(new Error(response&&response.error?response.error:'백엔드 응답 오류'));
+        return;
+      }
+
+      resolve(response.data);
+    };
+
+    script.onerror=()=>{
+      if(finished) return;
+      finished=true;
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error('백엔드 스크립트를 불러오지 못했습니다.'));
+    };
+
+    script.src=u.toString();
+    document.head.appendChild(script);
+  });
+}
+
+async function post(action,payload){
+  return parse(await fetch(BACKEND_URL,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action,payload})
+  }));
+}
+
+async function parse(r){
+  const t=await r.text();
+  let j;
+  try{
+    j=JSON.parse(t);
+  }catch(e){
+    throw new Error(`백엔드 응답이 JSON이 아닙니다. HTTP ${r.status}\n${t.slice(0,500)}`);
+  }
+  if(!r.ok||!j.ok) throw new Error(j.error||`HTTP ${r.status}`);
+  return j.data;
+}
 function showState(t){const e=document.getElementById('stateBox');e.textContent=t;e.classList.remove('hidden')}function loading(on,t='',m=''){document.getElementById('overlay').classList.toggle('hidden',!on);if(t)document.getElementById('loadTitle').textContent=t;if(m)document.getElementById('loadMsg').textContent=m}
 let timer;function msg(t,err=false){const e=document.getElementById('toast');e.textContent=t;e.style.background=err?'#9f2030':'#1d283b';e.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>e.classList.add('hidden'),err?7000:3500)}
 function fmt(v){const d=new Date(v);if(isNaN(d))return String(v||'-');const p=n=>String(n).padStart(2,'0'),m=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return `${p(d.getUTCDate())}${m[d.getUTCMonth()]},${p(d.getUTCHours())}${p(d.getUTCMinutes())}Z`}function label(t){return {AIRPORT:'공항',FIR:'FIR',AUTO:'자동'}[t]||t}function cut(t,n){t=String(t||'');return t.length>n?t.slice(0,n)+'…':t}function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
