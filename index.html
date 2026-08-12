@@ -76,6 +76,17 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 .notam-modal-chip{display:inline-block;border:1px solid #dfe5ee;background:#f7f9fc;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800}
 .notam-modal-raw{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:12px;line-height:1.55;border:1px solid #dfe5ee;background:#fafbfd;border-radius:10px;padding:14px}
 
+
+#makeKmlBtn{
+  background:#14b8a6;
+  border-color:#0f9f92;
+  color:#fff;
+}
+#makeKmlBtn:hover{
+  background:#0f9f92;
+  border-color:#0d8d82;
+}
+
 </style>
 </head>
 <body>
@@ -1610,21 +1621,23 @@ function buildKmlPolygonPlacemark(group){
    * AIRPORT:
    *   G) 상한만 사용.
    *   F)는 무시하고 지면부터 G) 높이까지 extrude.
+   *   G)가 실제로 있으면 polygon 상단 바로 위에 고도 label 표시.
    *
    * ROUTE/FIR:
-   *   기존 300,000 FT 시각화 높이를 그대로 유지.
+   *   기존 300,000 FT 시각화 높이와 기존 label/leader 유지.
    */
   let polygonAltitudeFt;
+  let airportGFeet=null;
 
   if(isRoute){
     polygonAltitudeFt=KML_DISPLAY_ALTITUDE_FT;
   }else{
-    const gFeet=kmlUpperLimitFeet(group);
+    airportGFeet=kmlUpperLimitFeet(group);
 
     // G)UNL / 해석 불가 시 기존 시각화 높이 fallback
     polygonAltitudeFt=
-      gFeet!=null
-        ? gFeet
+      airportGFeet!=null
+        ? airportGFeet
         : KML_DISPLAY_ALTITUDE_FT;
   }
 
@@ -1691,6 +1704,65 @@ function buildKmlPolygonPlacemark(group){
         <extrude>0</extrude>
         <altitudeMode>relativeToGround</altitudeMode>
         <coordinates>${lon},${lat},${labelTop}</coordinates>
+      </Point>
+    </Placemark>`;
+    }
+  }else if(airportGFeet!=null){
+    const center=polygonCenter(group.coords);
+
+    if(center){
+      const lon=center.lon.toFixed(8);
+      const lat=center.lat.toFixed(8);
+
+      // 공항 NOTAM label은 실제 G) 상단 바로 위에 표시.
+      // 너무 낮은 고도에서도 label이 polygon에 묻히지 않도록 최소 200FT offset.
+      const airportLabelOffsetFt=Math.max(200,Math.min(1000,airportGFeet*0.15));
+      const airportLabelTopM=(polygonAltitudeFt+airportLabelOffsetFt)*0.3048;
+
+      const rawUpper=normalizeAltitudeLabelToken(group.upperLimit);
+      const altitudeLabel=rawUpper
+        ? `G) ${rawUpper}`
+        : `G) ${Math.round(airportGFeet)}FT`;
+
+      leaderAndLabel=`
+    <Placemark>
+      <name></name>
+      <Style>
+        <LineStyle>
+          <color>ffffffff</color>
+          <width>1.5</width>
+        </LineStyle>
+      </Style>
+      <LineString>
+        <extrude>0</extrude>
+        <tessellate>0</tessellate>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <coordinates>
+          ${lon},${lat},${polygonAltitudeM.toFixed(2)}
+          ${lon},${lat},${airportLabelTopM.toFixed(2)}
+        </coordinates>
+      </LineString>
+    </Placemark>
+
+    <Placemark>
+      <name>${xmlEsc(altitudeLabel)}</name>
+      <Style>
+        <IconStyle>
+          <color>ff0000ff</color>
+          <scale>0.65</scale>
+          <Icon>
+            <href>https://maps.google.com/mapfiles/kml/shapes/triangle.png</href>
+          </Icon>
+        </IconStyle>
+        <LabelStyle>
+          <color>ff00ff00</color>
+          <scale>1.20</scale>
+        </LabelStyle>
+      </Style>
+      <Point>
+        <extrude>0</extrude>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <coordinates>${lon},${lat},${airportLabelTopM.toFixed(2)}</coordinates>
       </Point>
     </Placemark>`;
     }
