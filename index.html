@@ -36,7 +36,11 @@
 .excluded-content.hidden{display:none}
 
 table th:nth-child(6),table td:nth-child(6){min-width:220px;white-space:normal;word-break:keep-all}
+table th:nth-child(7),table td:nth-child(7){min-width:420px;white-space:normal;word-break:break-word}
 table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;word-break:break-word}
+.coord-block{font-family:Consolas,monospace;font-size:11px;line-height:1.5;white-space:normal;word-break:break-word}
+.coord-group{padding:5px 0}
+.coord-group+.coord-group{border-top:1px dashed #dfe5ee;margin-top:5px;padding-top:9px}
 .raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-width:720px}
 .qv{line-height:1.35}
 .route-alt-filter{display:flex;gap:8px;flex-wrap:wrap;margin:14px 18px 4px}.route-alt-btn{border:1px solid #cfd7e3;background:#fff;color:#536075;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer}.route-alt-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.route-alt-count{font-variant-numeric:tabular-nums}.route-filter-state{margin:8px 18px 0;color:var(--muted);font-size:12px}.route-notam-row.hidden-by-altitude{display:none}
@@ -566,16 +570,56 @@ function formatQCodeCell(n,q){
   return `<span class="qv">${esc(value)}</span>${dodLine}`;
 }
 
+
+function extractNotamCoordinateGroups(text){
+  const raw=String(text||'').toUpperCase();
+  const coordRe=/\b\d{6}[NS]\d{7}[EW]\b/g;
+
+  if(!raw) return [];
+
+  /*
+   * (1)AIRSPACE ... (2)AIRSPACE ... 형태는 구역별로 분리한다.
+   * 각 numbered AIRSPACE block 안에서 좌표만 등장 순서대로 추출한다.
+   */
+  const numbered=/\(\s*\d+\s*\)\s*AIRSPACE\s*:\s*([\s\S]*?)(?=\(\s*\d+\s*\)\s*AIRSPACE\s*:|RMK\s*:|$)/g;
+  const groups=[];
+  let m;
+
+  while((m=numbered.exec(raw))!==null){
+    const coords=m[1].match(coordRe)||[];
+    if(coords.length) groups.push(coords);
+  }
+
+  if(groups.length) return groups;
+
+  /*
+   * 번호가 없는 일반 NOTAM은 원문 전체에서 좌표를 추출하여
+   * 하나의 구역으로 표시한다.
+   */
+  const all=raw.match(coordRe)||[];
+  return all.length?[all]:[];
+}
+
+function formatNotamCoordinates(text){
+  const groups=extractNotamCoordinateGroups(text);
+  if(!groups.length) return '<span class="muted">-</span>';
+
+  return `<div class="coord-block">${groups.map((group,i)=>{
+    const label=groups.length>1?`<b>구역 ${i+1}</b><br>`:'';
+    return `<div class="coord-group">${label}${esc(group.join(' - '))}</div>`;
+  }).join('')}</div>`;
+}
+
 function notams(a,li,analysisMode){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
-  return `<table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${a.map(n=>{
+  return `<table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
     const isRoute=analysisMode==='ROUTE';
     const altitude=n.routeAltitudeBucket||'ALTITUDE_FIELD_MISSING';
     const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
     const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
-    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`;
+    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw)}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -585,9 +629,9 @@ function excludedNotams(a,li){
   const rows=a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
-    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`
+    return `<tr class="row ${qRowClass(n)}"><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td><span class="muted">분석시간과 중첩 없음</span></td><td>${formatQCodeCell(n,q)}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw)}</td></tr>`
   }).join('');
-  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
+  return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
 }
 function formatNotamValidity(n){
   const t=n.impactTime||{};
