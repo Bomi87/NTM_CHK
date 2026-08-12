@@ -1720,9 +1720,14 @@ function buildKmlPolygonPlacemark(group){
       const airportLabelTopM=(polygonAltitudeFt+airportLabelOffsetFt)*0.3048;
 
       const rawUpper=normalizeAltitudeLabelToken(group.upperLimit);
-      const altitudeLabel=rawUpper
-        ? `G) ${rawUpper}`
-        : `G) ${Math.round(airportGFeet)}FT`;
+      const airportUpperLabel=rawUpper
+        .replace(/\bFT\b/gi,'ft')
+        .replace(/\s+/g,' ')
+        .trim();
+
+      const altitudeLabel=airportUpperLabel
+        ? `~ ${airportUpperLabel}`
+        : `~ ${Math.round(airportGFeet)}ft`;
 
       leaderAndLabel=`
     <Placemark>
