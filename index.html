@@ -699,7 +699,11 @@ function formatNotamCoordinates(text,meta={}){
       location,
       legIndex,
       groupIndex:i+1,
-      coords:[...group]
+      coords:[...group],
+      lowerLimit:meta.lowerLimit,
+      upperLimit:meta.upperLimit,
+      routeAltitudeText:String(meta.routeAltitudeText||''),
+      rawText:String(meta.rawText||text||'')
     };
 
     const label=groups.length>1?`<b>구역 ${i+1}</b><br>`:'';
@@ -726,7 +730,11 @@ function notams(a,li,analysisMode){
       number:n.number||n.id||'NOTAM',
       location:n.location||n.queryLocation||'',
       legIndex:li,
-      scope:'ACTIVE'
+      scope:'ACTIVE',
+      lowerLimit:n.lowerLimit,
+      upperLimit:n.upperLimit,
+      routeAltitudeText:n.routeAltitudeText||'',
+      rawText:raw
     })}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -741,7 +749,11 @@ function excludedNotams(a,li){
       number:n.number||n.id||'NOTAM',
       location:n.location||n.queryLocation||'',
       legIndex:li,
-      scope:'EXCLUDED'
+      scope:'EXCLUDED',
+      lowerLimit:n.lowerLimit,
+      upperLimit:n.upperLimit,
+      routeAltitudeText:n.routeAltitudeText||'',
+      rawText:raw
     })}</td></tr>`
   }).join('');
   return `<div class="excluded-box"><button type="button" class="excluded-toggle" data-target="${target}" data-count="${a.length}">분석시간 밖 NOTAM ${a.length}건 보기</button><div id="${target}" class="excluded-content hidden" style="margin-top:10px"><div class="help" style="margin-bottom:8px">선택 분석시간과 겹치지 않아 영향 없음으로 제외된 NOTAM입니다.</div><div class="wrap"><table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`
@@ -828,12 +840,64 @@ function get(action,p={}){
   });
 }
 
-async function post(action,payload){
-  return parse(await fetch(BACKEND_URL,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action,payload})
-  }));
+async function post(action, payload) {
+  const maxAttempts = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const u = new URL(BACKEND_URL);
+
+      // 같은 URL 요청이 이상하게 처리되는 것을 피하기 위한 cache buster
+      u.searchParams.set('_ts', Date.now().toString());
+      u.searchParams.set('_attempt', String(attempt));
+
+      const response = await fetch(u.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify({
+          action,
+          payload
+        }),
+        cache: 'no-store',
+        redirect: 'follow'
+      });
+
+      const text = await response.text();
+
+      let json;
+
+      try {
+        json = JSON.parse(text);
+      } catch (_) {
+        throw new Error(
+          `백엔드 응답이 JSON이 아닙니다. HTTP ${response.status}`
+        );
+      }
+
+      if (!response.ok || !json.ok) {
+        throw new Error(
+          json.error || `HTTP ${response.status}`
+        );
+      }
+
+      return json.data;
+
+    } catch (error) {
+      lastError = error;
+
+      // 마지막 시도가 아니면 잠시 후 자동 재시도
+      if (attempt < maxAttempts) {
+        await new Promise(resolve =>
+          setTimeout(resolve, 500 * attempt)
+        );
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function parse(r){
@@ -883,6 +947,161 @@ function xmlEsc(v){
     .replace(/'/g,'&apos;');
 }
 
+/*
+ * KML 3D 표시 높이는 실제 NOTAM 고도와 무관하게
+ * 보기 좋게 모든 Polygon을 500,000 FT로 통일한다.
+ */
+const KML_DISPLAY_ALTITUDE_FT=500000;
+const KML_DISPLAY_ALTITUDE_M=KML_DISPLAY_ALTITUDE_FT*0.3048;
+
+/*
+ * backend lowerLimit / upperLimit 값이 문자열, 숫자 또는 객체로
+ * 전달되는 경우를 모두 최대한 안전하게 표시 문자열로 바꾼다.
+ */
+function altitudeValueToText(v){
+  if(v==null || v==='') return '';
+
+  if(typeof v==='number'){
+    if(!isFinite(v)) return 'UNL';
+    return String(v);
+  }
+
+  if(typeof v==='string'){
+    return v.trim().toUpperCase();
+  }
+
+  if(typeof v==='object'){
+    const candidates=[
+      v.display,
+      v.text,
+      v.label,
+      v.valueText,
+      v.raw,
+      v.original,
+      v.flightLevel,
+      v.fl,
+      v.value
+    ];
+
+    for(const c of candidates){
+      if(c!=null && c!==''){
+        if((c===v.flightLevel || c===v.fl) && /^\d+$/.test(String(c))){
+          return `FL${String(c).padStart(3,'0')}`;
+        }
+        return String(c).trim().toUpperCase();
+      }
+    }
+
+    try{
+      return JSON.stringify(v).toUpperCase();
+    }catch(_){
+      return '';
+    }
+  }
+
+  return String(v).trim().toUpperCase();
+}
+
+function normalizeAltitudeLabelToken(v){
+  let s=altitudeValueToText(v);
+  if(!s) return '';
+
+  s=s
+    .replace(/\s+/g,' ')
+    .replace(/\bFL\s*(\d{2,3})\b/g,'FL$1')
+    .trim();
+
+  if(/^(SFC|GND|SURFACE)$/.test(s)) return 'SFC';
+  if(/^(UNL|UNLIMITED)$/.test(s)) return 'UNL';
+
+  // 순수 숫자가 flight level처럼 넘어온 경우 (예: 320)
+  if(/^\d{2,3}$/.test(s)){
+    const n=Number(s);
+    if(n<=999) return `FL${String(n).padStart(3,'0')}`;
+  }
+
+  // "320 FL" 류
+  let m=s.match(/^(\d{2,3})\s*FL$/);
+  if(m) return `FL${String(Number(m[1])).padStart(3,'0')}`;
+
+  return s;
+}
+
+/*
+ * 실제 영향고도 라벨 생성.
+ * 사용자가 원하는 시각적 형식은 상한 중심:
+ *   SFC-FL320 -> ~FL320
+ *   FL200-FL350 -> ~FL350
+ *   SFC-UNL -> ~UNL
+ *
+ * lower/upperLimit이 구조화되어 있지 않은 경우에는
+ * routeAltitudeText 또는 NOTAM 원문에서 상한 표현을 보조적으로 찾는다.
+ */
+function actualAltitudeLabel(group){
+  const upper=normalizeAltitudeLabelToken(group.upperLimit);
+  if(upper){
+    return `~${upper}`;
+  }
+
+  const routeText=String(group.routeAltitudeText||'').toUpperCase();
+
+  let m=routeText.match(/\b(?:TO|–|-|~)\s*(FL\d{2,3}|UNL)\b/);
+  if(m) return `~${m[1]}`;
+
+  m=routeText.match(/\b(FL\d{2,3}|UNL)\b/g);
+  if(m && m.length) return `~${m[m.length-1]}`;
+
+  const raw=String(group.rawText||'').toUpperCase();
+
+  // Q-line 또는 본문에서 AT OR BLW FLxxx / BELOW FLxxx / TO FLxxx 등
+  const upperPatterns=[
+    /\bAT\s+OR\s+BLW\s+(FL\d{2,3})\b/,
+    /\bAT\s+OR\s+BELOW\s+(FL\d{2,3})\b/,
+    /\b(?:BLW|BELOW)\s+(FL\d{2,3})\b/,
+    /\bUP\s+TO\s+(FL\d{2,3})\b/,
+    /\bTO\s+(FL\d{2,3})\b/,
+    /\b(?:SFC|GND)\s*(?:-|TO|/)\s*(FL\d{2,3}|UNL)\b/
+  ];
+
+  for(const rx of upperPatterns){
+    const hit=raw.match(rx);
+    if(hit) return `~${hit[1]}`;
+  }
+
+  // 최후 fallback: lower만 있으면 실제 값은 보여주되 "~"는 붙이지 않는다.
+  const lower=normalizeAltitudeLabelToken(group.lowerLimit);
+  if(lower) return lower;
+
+  return '고도정보 없음';
+}
+
+function polygonCenter(coords){
+  const pts=(coords||[]).map(dmsCoordToDecimal).filter(Boolean);
+  if(!pts.length) return null;
+
+  // 폐합 좌표가 첫 점과 동일하면 centroid 계산에서 마지막 중복점 제외
+  let calc=pts;
+  if(pts.length>1){
+    const f=pts[0], l=pts[pts.length-1];
+    if(f.lat===l.lat && f.lon===l.lon){
+      calc=pts.slice(0,-1);
+    }
+  }
+
+  if(!calc.length) calc=pts;
+
+  const sum=calc.reduce((a,p)=>{
+    a.lat+=p.lat;
+    a.lon+=p.lon;
+    return a;
+  },{lat:0,lon:0});
+
+  return {
+    lat:sum.lat/calc.length,
+    lon:sum.lon/calc.length
+  };
+}
+
 function buildKmlPolygonPlacemark(group){
   const decimal=(group.coords||[])
     .map(dmsCoordToDecimal)
@@ -890,7 +1109,6 @@ function buildKmlPolygonPlacemark(group){
 
   if(decimal.length<3) return '';
 
-  // KML LinearRing은 폐합이 필요하므로 첫 점과 마지막 점이 다르면 자동으로 닫는다.
   const ring=[...decimal];
   const first=ring[0];
   const last=ring[ring.length-1];
@@ -899,8 +1117,12 @@ function buildKmlPolygonPlacemark(group){
     ring.push({...first});
   }
 
+  /*
+   * 모든 Polygon의 시각적 높이는 500,000 FT.
+   * 실제 NOTAM 고도는 geometry 높이에 사용하지 않고 Label에만 표시한다.
+   */
   const coordinates=ring
-    .map(p=>`${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`)
+    .map(p=>`${p.lon.toFixed(8)},${p.lat.toFixed(8)},${KML_DISPLAY_ALTITUDE_M.toFixed(2)}`)
     .join(' ');
 
   const name=[
@@ -908,6 +1130,32 @@ function buildKmlPolygonPlacemark(group){
     group.location ? group.location : '',
     `구역 ${group.groupIndex}`
   ].filter(Boolean).join(' · ');
+
+  const altitudeLabel=actualAltitudeLabel(group);
+  const center=polygonCenter(group.coords);
+
+  /*
+   * 라벨은 Polygon 윗부분에 표시.
+   * Geometry는 500,000FT 고정이지만 문구는 실제 영향고도.
+   */
+  const labelPlacemark=center ? `
+    <Placemark>
+      <name>${xmlEsc(altitudeLabel)}</name>
+      <Style>
+        <IconStyle>
+          <scale>0</scale>
+        </IconStyle>
+        <LabelStyle>
+          <color>ff00ff00</color>
+          <scale>1.35</scale>
+        </LabelStyle>
+      </Style>
+      <Point>
+        <extrude>0</extrude>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <coordinates>${center.lon.toFixed(8)},${center.lat.toFixed(8)},${KML_DISPLAY_ALTITUDE_M.toFixed(2)}</coordinates>
+      </Point>
+    </Placemark>` : '';
 
   return `
     <Placemark>
@@ -918,20 +1166,21 @@ function buildKmlPolygonPlacemark(group){
           <width>2</width>
         </LineStyle>
         <PolyStyle>
-          <color>7f00ff00</color>
+          <color>5f00ff00</color>
           <outline>1</outline>
         </PolyStyle>
       </Style>
       <Polygon>
-        <extrude>0</extrude>
-        <altitudeMode>clampToGround</altitudeMode>
+        <extrude>1</extrude>
+        <altitudeMode>relativeToGround</altitudeMode>
         <outerBoundaryIs>
           <LinearRing>
             <coordinates>${coordinates}</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
-    </Placemark>`;
+    </Placemark>
+    ${labelPlacemark}`;
 }
 
 function downloadSelectedKml(){
