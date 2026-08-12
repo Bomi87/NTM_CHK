@@ -40,6 +40,24 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 .raw-notam{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.45;max-width:720px}
 .qv{line-height:1.35}
 .route-alt-filter{display:flex;gap:8px;flex-wrap:wrap;margin:14px 18px 4px}.route-alt-btn{border:1px solid #cfd7e3;background:#fff;color:#536075;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer}.route-alt-btn.active{border-color:var(--p);background:#edf4ff;color:var(--p)}.route-alt-count{font-variant-numeric:tabular-nums}.route-filter-state{margin:8px 18px 0;color:var(--muted);font-size:12px}.route-notam-row.hidden-by-altitude{display:none}
+
+.airway-matrix-table{table-layout:fixed;min-width:0}
+.airway-matrix-table th,.airway-matrix-table td{text-align:center}
+.airway-matrix-table .airway{background:#ffc400;color:#111;font-weight:900}
+.airway-matrix-table .count{color:#d00;font-weight:900}
+.airway-notam-link{border:0;background:none;padding:2px 4px;color:#1266f1;text-decoration:underline;cursor:pointer;font:inherit}
+.airway-notam-link:hover{font-weight:900}
+.notam-modal{position:fixed;inset:0;z-index:2000;background:rgba(16,25,42,.55);display:flex;align-items:center;justify-content:center;padding:24px}
+.notam-modal.hidden{display:none!important}
+.notam-modal-card{width:min(900px,96vw);max-height:86vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(12,22,42,.28)}
+.notam-modal-head{position:sticky;top:0;background:#fff;border-bottom:1px solid #dfe5ee;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;z-index:1}
+.notam-modal-title{margin:0;font-size:17px}
+.notam-modal-close{border:0;background:#edf3fc;color:#23405f;border-radius:8px;padding:8px 12px;font-weight:900;cursor:pointer}
+.notam-modal-body{padding:18px}
+.notam-modal-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.notam-modal-chip{display:inline-block;border:1px solid #dfe5ee;background:#f7f9fc;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800}
+.notam-modal-raw{white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:12px;line-height:1.55;border:1px solid #dfe5ee;background:#fafbfd;border-radius:10px;padding:14px}
+
 </style>
 </head>
 <body>
@@ -72,6 +90,7 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 <script>
 const BACKEND_URL='https://script.google.com/macros/s/AKfycbx5Zh7vMN03M2InUw467oQAFTQn3Eqiewch1TuCcVsFEwl5FqqsEaFwPBnTDKdgD99p-Q/exec';
 const S={aircraft:'ACJ',byAircraft:{},selected:{}};
+const AIRWAY_NOTAM_POPUPS={};
 document.addEventListener('DOMContentLoaded',init);
 
 async function init(){
@@ -340,6 +359,7 @@ async function analyze(){
 }
 async function test(){loading(true,'API 연결 테스트','Pre-Production 인증 토큰을 요청하고 있습니다.');try{const r=await get('testConnection');msg(r.message)}catch(e){msg(e.message,true)}finally{loading(false)}}
 function renderResults(r){
+  Object.keys(AIRWAY_NOTAM_POPUPS).forEach(k=>delete AIRWAY_NOTAM_POPUPS[k]);
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('generated').textContent='생성: '+fmt(r.generatedAt);
   const box=document.getElementById('legs');
@@ -349,12 +369,16 @@ function renderResults(r){
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
-    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[]):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
+    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[],li):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
     box.appendChild(a);
   });
 
   document.querySelectorAll('.route-alt-btn').forEach(btn=>{
     btn.onclick=()=>applyRouteAltitudeFilter(btn.dataset.leg,btn.dataset.filter);
+  });
+
+  document.querySelectorAll('.airway-notam-link').forEach(btn=>{
+    btn.onclick=()=>openAirwayNotamPopup(btn.dataset.notamKey);
   });
 
   // 기존 기본값과 동일하게 항로 결과는 처음에 FL300 이상만 표시.
@@ -398,7 +422,101 @@ function applyRouteAltitudeFilter(li,filter){
   }
 }
 
-function matrix(a){if(!a.length)return '<div class="notice" style="margin:16px 18px">계획항로에 AIRWAY 형식 토큰이 없습니다.</div>';const max=Math.max(1,...a.map(x=>x.notams.length));let rows='';for(let i=0;i<max;i++)rows+=`<tr>${a.map(x=>`<td>${x.notams[i]?esc(x.notams[i].number):''}</td>`).join('')}</tr>`;return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4><div class="wrap"><table><thead><tr>${a.map(x=>`<th class="count">${x.count}</th>`).join('')}</tr><tr>${a.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`}
+function matrix(a,li){
+  const active=(a||[]).filter(x=>Number(x.count||0)>0);
+  if(!active.length){
+    return '<div class="notice" style="margin:16px 18px">계획항로에 영향이 있는 AIRWAY NOTAM이 없습니다.</div>';
+  }
+
+  const max=Math.max(1,...active.map(x=>(x.notams||[]).length));
+
+  let rows='';
+  for(let i=0;i<max;i++){
+    rows+='<tr>'+active.map((x,ai)=>{
+      const n=(x.notams||[])[i];
+      if(!n) return '<td></td>';
+
+      const key=`${li}|${ai}|${i}|${x.airway}|${n.number||''}`;
+      AIRWAY_NOTAM_POPUPS[key]={
+        airway:x.airway||'',
+        number:n.number||'UNKNOWN',
+        location:n.location||'',
+        severity:n.severity||'',
+        text:n.text||''
+      };
+
+      return `<td><button type="button" class="airway-notam-link" data-notam-key="${esc(key)}">${esc(n.number||'UNKNOWN')}</button></td>`;
+    }).join('')+'</tr>';
+  }
+
+  const counts=active.map(x=>`<th class="count">${Number(x.count||0)}</th>`).join('');
+  const airways=active.map(x=>`<th class="airway">${esc(x.airway)}</th>`).join('');
+
+  return `<h4 class="matrix-title">AIRWAY별 영향 NOTAM</h4>
+    <div class="wrap">
+      <table class="airway-matrix-table">
+        <thead>
+          <tr>${counts}</tr>
+          <tr>${airways}</tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function ensureAirwayNotamModal(){
+  let modal=document.getElementById('airwayNotamModal');
+  if(modal) return modal;
+
+  modal=document.createElement('div');
+  modal.id='airwayNotamModal';
+  modal.className='notam-modal hidden';
+  modal.innerHTML=`
+    <div class="notam-modal-card" role="dialog" aria-modal="true" aria-labelledby="airwayNotamModalTitle">
+      <div class="notam-modal-head">
+        <h3 id="airwayNotamModalTitle" class="notam-modal-title">AIRWAY 영향 NOTAM</h3>
+        <button type="button" class="notam-modal-close">닫기</button>
+      </div>
+      <div class="notam-modal-body">
+        <div id="airwayNotamModalMeta" class="notam-modal-meta"></div>
+        <div id="airwayNotamModalRaw" class="notam-modal-raw"></div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('.notam-modal-close').onclick=closeAirwayNotamPopup;
+  modal.onclick=e=>{
+    if(e.target===modal) closeAirwayNotamPopup();
+  };
+
+  return modal;
+}
+
+function openAirwayNotamPopup(key){
+  const n=AIRWAY_NOTAM_POPUPS[key];
+  if(!n) return;
+
+  const modal=ensureAirwayNotamModal();
+  document.getElementById('airwayNotamModalTitle').textContent=`${n.number} · ${n.airway}`;
+  document.getElementById('airwayNotamModalMeta').innerHTML=[
+    n.location?`<span class="notam-modal-chip">위치 ${esc(n.location)}</span>`:'',
+    n.airway?`<span class="notam-modal-chip">AIRWAY ${esc(n.airway)}</span>`:'',
+    n.severity?`<span class="notam-modal-chip">등급 ${esc(n.severity)}</span>`:''
+  ].filter(Boolean).join('');
+  document.getElementById('airwayNotamModalRaw').textContent=n.text||'NOTAM 원문이 없습니다.';
+  modal.classList.remove('hidden');
+}
+
+function closeAirwayNotamPopup(){
+  const modal=document.getElementById('airwayNotamModal');
+  if(modal) modal.classList.add('hidden');
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeAirwayNotamPopup();
+});
+
 function qRowClass(n){
   const c=(n.qVisual&&n.qVisual.className)||'NORMAL';
   if(c==='MILITARY') return 'q-military';
