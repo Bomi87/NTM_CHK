@@ -84,7 +84,7 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 
 <section class="panel">
 <div class="heading"><div class="left"><span class="step">1</span><h2>항공기 및 스케줄 선택</h2></div><div id="selectionActions"><button id="allBtn" class="textbtn">전체 선택</button><button id="clearBtn" class="textbtn">선택 해제</button></div></div>
-<div class="tabs"><button class="tab active" data-a="ACJ">ACJ</button><button class="tab" data-a="G650">G650</button><button class="tab" data-a="MANUAL">Manual</button></div>
+<div class="tabs"><button class="tab active" data-mode="SCHEDULE" data-a="ACJ">ACJ</button><button class="tab" data-mode="SCHEDULE" data-a="G650">G650</button><button class="tab" data-mode="MANUAL">Manual</button></div>
 <div id="stateBox" class="state">스케줄을 불러오는 중입니다.</div><div id="list" class="list"></div>
 </section>
 
@@ -119,6 +119,7 @@ table th:nth-child(8),table td:nth-child(8){min-width:460px;white-space:normal;w
 <script>
 const BACKEND_URL='https://script.google.com/macros/s/AKfycbx5Zh7vMN03M2InUw467oQAFTQn3Eqiewch1TuCcVsFEwl5FqqsEaFwPBnTDKdgD99p-Q/exec';
 const S={
+  mode:'SCHEDULE',
   aircraft:'ACJ',
   byAircraft:{},
   selected:{},
@@ -173,7 +174,16 @@ async function prefetchAircraft(a){
   }
 }
 function bind(){
-  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchA(b.dataset.a));
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.onclick=()=>{
+      if(b.dataset.mode==='MANUAL'){
+        switchMode('MANUAL');
+      }else{
+        switchMode('SCHEDULE',b.dataset.a);
+      }
+    };
+  });
+
   document.getElementById('allBtn').onclick=selectAll;
   document.getElementById('clearBtn').onclick=clearAll;
   document.getElementById('analyzeBtn').onclick=analyze;
@@ -181,29 +191,45 @@ function bind(){
   document.getElementById('clearKmlBtn').onclick=clearAllKmlSelections;
   document.getElementById('makeKmlBtn').onclick=downloadSelectedKml;
 }
-async function switchA(a){
-  S.aircraft=a;
-  document.querySelectorAll('.tab').forEach(
-    b=>b.classList.toggle('active',b.dataset.a===a)
-  );
 
+async function switchMode(mode,aircraft){
   const timePanel=document.getElementById('timeConditionPanel');
   const selectionActions=document.getElementById('selectionActions');
 
-  if(a==='MANUAL'){
+  if(mode==='MANUAL'){
+    S.mode='MANUAL';
+
+    document.querySelectorAll('.tab').forEach(b=>{
+      b.classList.toggle('active',b.dataset.mode==='MANUAL');
+    });
+
     if(timePanel) timePanel.classList.add('hidden');
     if(selectionActions) selectionActions.classList.add('hidden');
+
     renderManual();
     return;
   }
 
+  S.mode='SCHEDULE';
+
+  if(aircraft==='ACJ' || aircraft==='G650'){
+    S.aircraft=aircraft;
+  }
+
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.classList.toggle(
+      'active',
+      b.dataset.mode==='SCHEDULE' && b.dataset.a===S.aircraft
+    );
+  });
+
   if(timePanel) timePanel.classList.remove('hidden');
   if(selectionActions) selectionActions.classList.remove('hidden');
 
-  if(!S.byAircraft[a]){
-    loading(true,'스케줄 로딩 중',`${a} 스케줄을 불러오고 있습니다.`);
+  if(!S.byAircraft[S.aircraft]){
+    loading(true,'스케줄 로딩 중',`${S.aircraft} 스케줄을 불러오고 있습니다.`);
     try{
-      await load(a);
+      await load(S.aircraft);
     }finally{
       loading(false);
     }
@@ -211,6 +237,7 @@ async function switchA(a){
     render();
   }
 }
+
 async function load(a){
   showState(`${a} 스케줄을 불러오는 중입니다.`);
 
@@ -323,7 +350,7 @@ function makeManualSchedule(){
   }
 
   const startUtc=`${date}T00:00:00.000Z`;
-  const endUtc=`${date}T23:59:00.000Z`;
+  const endUtc=`${date}T23:59:59.999Z`;
 
   if(isNaN(new Date(startUtc).getTime())||isNaN(new Date(endUtc).getTime())){
     throw new Error('조회 날짜가 올바르지 않습니다.');
@@ -333,7 +360,8 @@ function makeManualSchedule(){
     return {
       schedule:{
         id:`MANUAL-AIRPORT-${code}-${date}`,
-        aircraft:'ACJ',
+        aircraft:S.aircraft,
+        isManual:true,
         displayText:`MANUAL · AIRPORT ${code} · ${date} 00:00Z ~ 23:59Z`,
         departureCode:code,
         arrivalCode:code,
@@ -350,14 +378,15 @@ function makeManualSchedule(){
         includeAltitudeUnknown:true
       },
       beforeHours:0,
-      afterHours:(23*60+59)/60
+      afterHours:(23*60+59+59/60)/60
     };
   }
 
   return {
     schedule:{
       id:`MANUAL-FIR-${code}-${date}`,
-      aircraft:'ACJ',
+      aircraft:S.aircraft,
+      isManual:true,
       displayText:`MANUAL · FIR ${code} · ${date} 00:00Z ~ 23:59Z`,
       departureCode:code,
       arrivalCode:code,
@@ -380,6 +409,11 @@ function makeManualSchedule(){
 
 function base(s){return {...s,analysisMode:'AIRPORT',queryDeparture:true,queryArrival:true,manualAirportCodes:[],manualAirportReference:'ARRIVAL',firCodes:[],route:'',routeMinFlightLevel:300,includeAltitudeUnknown:true}}
 function render(){
+  if(S.mode==='MANUAL'){
+    renderManual();
+    return;
+  }
+
   const timePanel=document.getElementById('timeConditionPanel');
   const selectionActions=document.getElementById('selectionActions');
   if(timePanel) timePanel.classList.remove('hidden');
@@ -517,19 +551,19 @@ function sync(id,c){
   ui();
 }
 function selectAll(){
-  if(S.aircraft==='MANUAL') return;
+  if(S.mode==='MANUAL') return;
   (S.byAircraft[S.aircraft]||[]).forEach(s=>{
     if(!S.selected[s.id]) S.selected[s.id]=base(s);
   });
   render();
 }
 function clearAll(){
-  if(S.aircraft==='MANUAL') return;
+  if(S.mode==='MANUAL') return;
   (S.byAircraft[S.aircraft]||[]).forEach(s=>delete S.selected[s.id]);
   render();
 }
 function ui(){
-  if(S.aircraft==='MANUAL'){
+  if(S.mode==='MANUAL'){
     updateManualUi();
     return;
   }
@@ -556,7 +590,7 @@ function ui(){
   document.getElementById('analyzeBtn').disabled=!a.length;
 }
 async function analyze(){
-  if(S.aircraft==='MANUAL'){
+  if(S.mode==='MANUAL'){
     let manual;
     try{
       manual=makeManualSchedule();
@@ -647,7 +681,8 @@ function renderResults(r){
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
-    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[],li):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode)}</div>${excludedNotams(x.excludedByTime||[],li)}`;
+    const isManual=!!(x.leg&&x.leg.isManual) || /^MANUAL/i.test(String(x.leg&&x.leg.displayText||''));
+    a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[],li):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode,isManual)}</div>${excludedNotams(x.excludedByTime||[],li,isManual)}`;
     box.appendChild(a);
   });
 
@@ -667,10 +702,11 @@ function renderResults(r){
   document.querySelectorAll('.excluded-toggle').forEach(btn=>btn.onclick=()=>{
     const box=document.getElementById(btn.dataset.target);
     const li=Number(btn.dataset.leg);
+    const isManual=btn.dataset.manual==='1';
 
     // 처음 펼칠 때만 숨겨진 제외 NOTAM을 실제로 렌더링한다.
     if(!box.dataset.rendered){
-      box.innerHTML=renderExcludedContent(EXCLUDED_NOTAM_LOOKUP[li]||[],li);
+      box.innerHTML=renderExcludedContent(EXCLUDED_NOTAM_LOOKUP[li]||[],li,isManual);
       box.dataset.rendered='1';
 
       // 새로 생성된 좌표 체크박스에 이벤트 연결
@@ -1058,7 +1094,7 @@ function formatNotamCoordinates(text,meta={}){
   }).join('')}</div>`;
 }
 
-function notams(a,li,analysisMode){
+function notams(a,li,analysisMode,isManual=false){
   if(!a.length)return '<div class="state">현재 조건에서 표시할 영향 NOTAM이 없습니다.</div>';
   return `<table><thead><tr><th>위치</th><th>NOTAM</th><th>NOTAM 유효시간</th><th>분석 기준시간</th><th>Q-CODE / FAA 분류</th><th>NOTAM 원본</th><th>좌표</th></tr></thead><tbody>${a.map(n=>{
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
@@ -1067,7 +1103,7 @@ function notams(a,li,analysisMode){
     const altitude=n.routeAltitudeBucket||'ALTITUDE_FIELD_MISSING';
     const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
     const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
-    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw,{
+    return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n,isManual)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td><td>${formatNotamCoordinates(raw,{
       number:n.number||n.id||'NOTAM',
       location:n.location||n.queryLocation||'',
       legIndex:li,
@@ -1080,7 +1116,7 @@ function notams(a,li,analysisMode){
   }).join('')}</tbody></table>`;
 }
 
-function excludedNotams(a,li){
+function excludedNotams(a,li,isManual=false){
   if(!a.length)return '';
 
   const target=`excluded-${li}`;
@@ -1098,6 +1134,7 @@ function excludedNotams(a,li){
       class="excluded-toggle"
       data-target="${target}"
       data-leg="${li}"
+      data-manual="${isManual?'1':'0'}"
       data-count="${a.length}">
       분석시간 밖 NOTAM ${a.length}건 보기
     </button>
@@ -1109,7 +1146,7 @@ function excludedNotams(a,li){
   </div>`;
 }
 
-function renderExcludedContent(a,li){
+function renderExcludedContent(a,li,isManual=false){
   if(!a.length){
     return '<div class="state">분석시간 밖 NOTAM이 없습니다.</div>';
   }
@@ -1169,11 +1206,15 @@ function formatNotamValidity(n){
   return `${esc(start)}<br>~ ${esc(end)}`;
 }
 
-function formatImpactTime(n){
+function formatImpactTime(n,isManual=false){
   const t=n.impactTime||{};
 
   if(t.overlapStatus!=='OVERLAP'){
     return '<span class="muted">시간 해석 불가</span>';
+  }
+
+  if(isManual){
+    return `<b>${esc(t.durationText||'-')}</b><br><span class="muted">${esc(fmt(t.analysisStartUtc))}<br>~ ${esc(fmt(t.analysisEndUtc))}</span>`;
   }
 
   return `<b>${esc(t.durationText||'-')}</b><br><span class="muted">${esc(fmt(t.overlapStartUtc))}<br>~ ${esc(fmt(t.overlapEndUtc))}</span>`;
