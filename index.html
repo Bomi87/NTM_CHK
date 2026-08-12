@@ -237,8 +237,8 @@ function render(){
             </div>
             <div class="filter">
               <strong>항로 NOTAM 결과 구분</strong>
-              <div class="help">조회 후 스케줄 영향시간대 NOTAM을 <b>FL300 이상</b>과 <b>FL300 이상 제외</b> 두 그룹으로 나누어 볼 수 있습니다.</div>
-              <div class="help">고도값이 없는 NOTAM은 <b>FL300 이상 제외</b> 그룹에 포함됩니다.</div>
+              <div class="help">항로 NOTAM은 <b>FL300 이상</b>과 <b>고도 필드값 없음</b> 두 그룹으로 나누어 볼 수 있습니다.</div>
+              <div class="help">FL300 미만 NOTAM은 표출하지 않으며, lower/upper 고도정보가 모두 없는 NOTAM만 <b>필드값 없음</b>에서 확인합니다.</div>
             </div>
           </div>
         </div>
@@ -396,9 +396,18 @@ function renderResults(r){
 }
 
 function routeAltitudeControls(a,li){
-  const high=(a||[]).filter(n=>(n.routeAltitudeBucket||'BELOW_300_OR_UNKNOWN')==='FL300_PLUS').length;
-  const other=(a||[]).length-high;
-  return `<div class="route-alt-filter" data-leg="${li}"><button type="button" class="route-alt-btn" data-leg="${li}" data-filter="FL300_PLUS">FL300 이상 NOTAM <span class="route-alt-count">${high}</span></button><button type="button" class="route-alt-btn" data-leg="${li}" data-filter="BELOW_300_OR_UNKNOWN">FL300 이상 제외 전체 NOTAM <span class="route-alt-count">${other}</span></button></div><div id="route-filter-state-${li}" class="route-filter-state"></div>`;
+  const high=(a||[]).filter(n=>n.routeAltitudeBucket==='FL300_PLUS').length;
+  const missing=(a||[]).filter(n=>n.routeAltitudeBucket==='ALTITUDE_FIELD_MISSING').length;
+
+  return `<div class="route-alt-filter" data-leg="${li}">
+    <button type="button" class="route-alt-btn" data-leg="${li}" data-filter="FL300_PLUS">
+      FL300 이상 NOTAM <span class="route-alt-count">${high}</span>
+    </button>
+    <button type="button" class="route-alt-btn" data-leg="${li}" data-filter="ALTITUDE_FIELD_MISSING">
+      필드값 없음 <span class="route-alt-count">${missing}</span>
+    </button>
+  </div>
+  <div id="route-filter-state-${li}" class="route-filter-state"></div>`;
 }
 
 function applyRouteAltitudeFilter(li,filter){
@@ -418,7 +427,7 @@ function applyRouteAltitudeFilter(li,filter){
   if(state){
     state.textContent=filter==='FL300_PLUS'
       ? `스케줄 영향시간대 NOTAM 중 FL300 이상 영향 ${shown}건 표시`
-      : `스케줄 영향시간대 NOTAM 중 FL300 이상을 제외한 ${shown}건 표시 (고도 미상 포함)`;
+      : `스케줄 영향시간대 NOTAM 중 고도 필드값이 없는 ${shown}건 표시`;
   }
 }
 
@@ -442,7 +451,8 @@ function matrix(a,li){
         number:n.number||'UNKNOWN',
         location:n.location||'',
         severity:n.severity||'',
-        text:n.text||''
+        text:n.text||'',
+        originalText:n.originalText||n.text||''
       };
 
       return `<td><button type="button" class="airway-notam-link" data-notam-key="${esc(key)}">${esc(n.number||'UNKNOWN')}</button></td>`;
@@ -479,6 +489,7 @@ function ensureAirwayNotamModal(){
       </div>
       <div class="notam-modal-body">
         <div id="airwayNotamModalMeta" class="notam-modal-meta"></div>
+        <div class="help" style="margin-bottom:8px"><b>NOTAM 원본</b></div>
         <div id="airwayNotamModalRaw" class="notam-modal-raw"></div>
       </div>
     </div>`;
@@ -504,7 +515,7 @@ function openAirwayNotamPopup(key){
     n.airway?`<span class="notam-modal-chip">AIRWAY ${esc(n.airway)}</span>`:'',
     n.severity?`<span class="notam-modal-chip">등급 ${esc(n.severity)}</span>`:''
   ].filter(Boolean).join('');
-  document.getElementById('airwayNotamModalRaw').textContent=n.text||'NOTAM 원문이 없습니다.';
+  document.getElementById('airwayNotamModalRaw').textContent=n.originalText||n.text||'NOTAM 원본이 없습니다.';
   modal.classList.remove('hidden');
 }
 
@@ -549,7 +560,7 @@ function notams(a,li,analysisMode){
     const q=n.qDecoded&&n.qDecoded.label?n.qDecoded.label:n.qCode||'-';
     const raw=n.originalText||n.text||'';
     const isRoute=analysisMode==='ROUTE';
-    const altitude=n.routeAltitudeBucket||'BELOW_300_OR_UNKNOWN';
+    const altitude=n.routeAltitudeBucket||'ALTITUDE_FIELD_MISSING';
     const rowClass=`row ${qRowClass(n)}${isRoute?' route-notam-row':''}`;
     const rowAttrs=isRoute?` data-leg="${li}" data-altitude="${esc(altitude)}"`:'';
     return `<tr class="${rowClass}"${rowAttrs}><td>${esc(n.location||n.queryLocation)}</td><td><b>${esc(n.number||n.id||'-')}</b></td><td>${formatNotamValidity(n)}</td><td>${formatImpactTime(n)}</td><td>${formatQCodeCell(n,q)}${isRoute&&n.routeAltitudeText?`<br><span class="muted">${esc(n.routeAltitudeText)}</span>`:''}</td><td><div class="raw-notam">${esc(raw)}</div></td></tr>`;
