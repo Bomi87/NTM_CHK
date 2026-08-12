@@ -681,7 +681,7 @@ function renderResults(r){
     const a=document.createElement('article');
     a.className='leg';
     const routeControls=x.analysisMode==='ROUTE'?routeAltitudeControls(x.notams||[],li):'';
-    const isManual=!!(x.leg&&x.leg.isManual) || /^MANUAL/i.test(String(x.leg&&x.leg.displayText||''));
+    const isManual=S.mode==='MANUAL';
     a.innerHTML=`<div class="leghead"><div><h3>${esc(x.leg.displayText)} · ${x.analysisMode==='ROUTE'?'항로 NOTAM':'공항 NOTAM'}</h3><div class="muted">조회: ${esc(x.queriedCodes.map(v=>v.code+'('+label(v.type)+')').join(', '))}<br>분석범위 ${fmt(x.analysisWindow.startUtc)} ~ ${fmt(x.analysisWindow.endUtc)}</div></div></div>${x.analysisMode==='ROUTE'?matrix(x.airwayMatrix||[],li):''}${routeControls}<div class="wrap">${notams(x.notams,li,x.analysisMode,isManual)}</div>${excludedNotams(x.excludedByTime||[],li,isManual)}`;
     box.appendChild(a);
   });
